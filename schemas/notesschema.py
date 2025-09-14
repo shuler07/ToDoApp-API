@@ -1,5 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class CreateNoteSchema(BaseModel):
     access_token: str
-    note_text: str
+    title: str = Field(min_length=1)
+    text: str = Field(min_length=1)
