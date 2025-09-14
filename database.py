@@ -1,29 +1,48 @@
-from typing import Annotated
+from typing import Annotated, AsyncGenerator
 
 from fastapi import Depends
 
-from sqlalchemy.orm import sessionmaker, Session, DeclarativeBase
-from sqlalchemy import create_engine
+import asyncio
+import selectors
 
-class Database:
+from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.ext.asyncio.engine import create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession, AsyncEngine
 
-    def __init__(self):
-        # format: <db_type>://<user>:<password>@<host>:<port>/<db_name>
-        URL_DATABASE = 'postgresql+psycopg2://postgres:1029384756qq@localhost:5432/todoapp'
-        
-        self.engine = create_engine(URL_DATABASE)
-        self.session = sessionmaker(self.engine, expire_on_commit=False)
+from dotenv import load_dotenv
+from os import getenv
 
-    def get_engine(self):
-        return self.engine
-
-    def get_session(self):
-        with self.session() as ses:
-            yield ses
-
-db = Database()
+load_dotenv()
 
 # Base class for all databases to create with one command
 class Base(DeclarativeBase): pass
 
-sessionDep = Annotated[Session, Depends(db.get_session)]
+class Database:
+    def __init__(self, url: str | None = getenv('url_database')) -> None:
+        if url is None:
+            raise ValueError('URL of database not found')
+
+        self.engine: AsyncEngine = create_async_engine(url=url)
+        self.session: async_sessionmaker[AsyncSession] = async_sessionmaker(bind=self.engine, expire_on_commit=False)
+
+    def get_engine(self) -> AsyncEngine:
+        return self.engine
+
+    async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
+        async with self.session() as ses:
+            yield ses
+
+    async def create_all_tables(self) -> None:
+        async with self.get_engine().begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+db = Database()
+
+# Creating loop (For windows) to use special selector (compatible with psycopg)
+loop = asyncio.SelectorEventLoop(selectors.SelectSelector())
+try:
+    loop.run_until_complete(db.create_all_tables())
+except:
+    loop.close()
+
+sessionDep = Annotated[AsyncSession, Depends(db.get_session)]

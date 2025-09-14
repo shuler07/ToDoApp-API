@@ -38,9 +38,11 @@ def get_auth_data(userAuth: UserAuthSchema):
     try:
         payload = authentication.decode_token(access_token)
         print('Payload:', payload)
+
         uid = payload.get('sub')
         if uid is None:
             return {'isLoggedIn': False, 'isRefresh': True}
+        
         return {'isLoggedIn': True, 'uid': uid}
     except exceptions.ExpiredSignatureError:
         print('Token is expired')
@@ -52,18 +54,20 @@ def refresh_token(response: Response, refresh_token: str = Cookie(None, alias=au
     try:
         payload = authentication.decode_token(refresh_token)
         print('payload:', payload)
+
         new_access_token = authentication.auth.create_access_token(payload.get('sub'))
         new_refresh_token = authentication.auth.create_refresh_token(payload.get('sub'))
         response.set_cookie(authentication.config.JWT_REFRESH_COOKIE_NAME, new_refresh_token)
+
         return {'isLoggedIn': True, 'access_token': new_access_token}
     except:
         print('Sonething went wrong')
         return {'isLoggedIn': False}
 
 @app.post('/register', summary='Register', tags=['Authentication'])
-def register(creds: UserCredsSchema, response: Response, session: sessionDep):
+async def register(creds: UserCredsSchema, response: Response, session: sessionDep):
     query = select(UserModel).where(UserModel.email == creds.email)
-    result = session.execute(query)
+    result = await session.execute(query)
     user = result.scalar_one_or_none()
 
     if user != None:
@@ -77,7 +81,7 @@ def register(creds: UserCredsSchema, response: Response, session: sessionDep):
     session.commit()
 
     query = select(UserModel.uid).where(UserModel.email == creds.email)
-    result = session.execute(query)
+    result = await session.execute(query)
     uid = result.scalar_one_or_none()
 
     if uid == None:
@@ -86,22 +90,25 @@ def register(creds: UserCredsSchema, response: Response, session: sessionDep):
     access_token = authentication.auth.create_access_token(uid=uid)
     refresh_token = authentication.auth.create_refresh_token(uid=uid)
     response.set_cookie(authentication.config.JWT_REFRESH_COOKIE_NAME, refresh_token)
+
     return {'isLoggedIn': True, 'access_token': access_token, 'uid': uid}
 
 @app.post('/login', summary='Login', tags=['Authentication'])
-def login(creds: UserCredsSchema, response: Response, session: sessionDep):
+async def login(creds: UserCredsSchema, response: Response, session: sessionDep):
     query = select(UserModel).where(UserModel.email == creds.email)
-    result = session.execute(query)
+    result = await session.execute(query)
     user = result.scalar_one_or_none()
 
     if user == None: 
         raise HTTPException(401, 'Invalid email')
+    
     if user.password != creds.password:
         raise HTTPException(401, 'Invalid password')
         
     access_token = authentication.auth.create_access_token(uid=str(user.uid))
     refresh_token = authentication.auth.create_refresh_token(uid=str(user.uid))
     response.set_cookie(authentication.config.JWT_REFRESH_COOKIE_NAME, refresh_token)
+    
     return {'isLoggedIn': True, 'access_token': access_token, 'uid': user.uid}
         
 @app.post('/signout', summary='Sign out', tags=['Authentication'])
@@ -118,7 +125,7 @@ def sign_out(userAuth: UserAuthSchema, response: Response, refresh_token: str = 
 # Endpoints -> Notes
 
 @app.post('/create_new_note', summary='Create new note', tags=['Notes'])
-def create_new_note(createNote: CreateNoteSchema, session: sessionDep):
+async def create_new_note(createNote: CreateNoteSchema, session: sessionDep):
     access_token = createNote.access_token
     if access_token is None:
         raise HTTPException(401, 'User not logged in')
@@ -134,12 +141,12 @@ def create_new_note(createNote: CreateNoteSchema, session: sessionDep):
         status='not_completed'
     )
     session.add(new_note)
-    session.commit()
+    await session.commit()
 
     return {'success': True}
 
 @app.post('/get_notes', summary='Get notes', tags=['Notes'])
-def get_notes(userAuth: UserAuthSchema, session: sessionDep):
+async def get_notes(userAuth: UserAuthSchema, session: sessionDep):
     access_token = userAuth.access_token
     if access_token is None:
         raise HTTPException(401, 'User not logged in')
@@ -149,9 +156,10 @@ def get_notes(userAuth: UserAuthSchema, session: sessionDep):
         raise HTTPException(401, 'Invalid token')
     
     query = select(NotesModel).where(NotesModel.uid == int(uid))
-    result = session.execute(query)
+    result = await session.execute(query)
     notes = result.scalars().all()
     print('Notes count:', len(notes))
+
     return notes
 
 if __name__ == '__main__':

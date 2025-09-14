@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import Integer, String
 
-from database import Base, db
+from database import Base
 
 class NotesModel(Base):
     __tablename__ = 'notes'
@@ -11,5 +11,3 @@ class NotesModel(Base):
     title: Mapped[str] = mapped_column(String)
     text: Mapped[str] = mapped_column(String)
     status: Mapped[str] = mapped_column(String)
-
-Base.metadata.create_all(db.get_engine())
