@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Response, Depends, Cookie
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from jose import exceptions
 
@@ -11,7 +11,7 @@ from auth import authentication
 from models.usermodel import UserModel
 from models.notesmodel import NotesModel
 from schemas.userschema import UserCredsSchema, UserAuthSchema
-from schemas.notesschema import CreateNoteSchema
+from schemas.notesschema import CreateNoteSchema, ChangeNoteStatusSchema
 
 app = FastAPI()
 
@@ -164,3 +164,19 @@ async def get_notes(userAuth: UserAuthSchema, session: sessionDep):
 
 if __name__ == '__main__':
     uvicorn.run('main:app', reload=True)
+
+@app.post('/change_note_status', summary='Change note status', tags=['Notes'])
+async def change_note_status(changeNoteSchema: ChangeNoteStatusSchema, session: sessionDep):
+    access_token = changeNoteSchema.access_token
+    if access_token is None:
+        raise HTTPException(401, 'User not logged in')
+    
+    uid = authentication.get_uid_from_token(access_token)
+    if uid is None:
+        raise HTTPException(401, 'Invalid token')
+    
+    query = update(NotesModel).values(status=changeNoteSchema.status).where(NotesModel.id == changeNoteSchema.id)
+    await session.execute(query)
+    await session.commit()
+
+    return {'success': True}

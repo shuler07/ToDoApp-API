@@ -7,7 +7,7 @@ class NotesModel(Base):
     __tablename__ = 'notes'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    uid: Mapped[int] = mapped_column(Integer)
-    title: Mapped[str] = mapped_column(String)
-    text: Mapped[str] = mapped_column(String)
-    status: Mapped[str] = mapped_column(String)
+    uid: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    text: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False)

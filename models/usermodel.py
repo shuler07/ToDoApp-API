@@ -7,5 +7,5 @@ class UserModel(Base):
     __tablename__ = 'user'
 
     uid: Mapped[int] = mapped_column(Integer, primary_key=True)
-    email: Mapped[str] = mapped_column(String)
-    password: Mapped[str] = mapped_column(String)
+    email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    password: Mapped[str] = mapped_column(String, nullable=False)
