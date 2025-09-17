@@ -1,6 +1,0 @@
-fastapi[standard]
-uvicorn
-sqlalchemy
-AuthX
-jose
-psycopg
