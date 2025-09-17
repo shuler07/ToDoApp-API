@@ -18,7 +18,7 @@ load_dotenv()
 class Base(DeclarativeBase): pass
 
 class Database:
-    def __init__(self, url: str | None = getenv('url_database')) -> None:
+    def __init__(self, url: str | None = getenv('URL_DATABASE')) -> None:
         if url is None:
             raise ValueError('URL of database not found')
 
