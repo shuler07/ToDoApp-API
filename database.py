@@ -9,16 +9,13 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.asyncio.engine import create_async_engine
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession, AsyncEngine
 
-from dotenv import load_dotenv
-from os import getenv
-
-load_dotenv()
+from os import environ
 
 # Base class for all databases to create with one command
 class Base(DeclarativeBase): pass
 
 class Database:
-    def __init__(self, url: str | None = getenv('url_database')) -> None:
+    def __init__(self, url: str | None = environ.get('URL_DATABASE')) -> None:
         if url is None:
             raise ValueError('URL of database not found')
 

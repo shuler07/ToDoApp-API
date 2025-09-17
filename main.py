@@ -6,6 +6,8 @@ from sqlalchemy import select, update
 
 from jose import exceptions
 
+from os import environ
+
 from database import sessionDep
 from auth import authentication
 from models.usermodel import UserModel
@@ -13,7 +15,7 @@ from models.notesmodel import NotesModel
 from schemas.userschema import UserCredsSchema, UserAuthSchema
 from schemas.notesschema import CreateNoteSchema, ChangeNoteStatusSchema
 
-app = FastAPI()
+app = FastAPI(title='ToDoApp API', version='1.00')
 
 # Setup middleware
 
@@ -162,9 +164,6 @@ async def get_notes(userAuth: UserAuthSchema, session: sessionDep):
 
     return notes
 
-if __name__ == '__main__':
-    uvicorn.run('main:app', reload=True)
-
 @app.post('/change_note_status', summary='Change note status', tags=['Notes'])
 async def change_note_status(changeNoteSchema: ChangeNoteStatusSchema, session: sessionDep):
     access_token = changeNoteSchema.access_token
@@ -180,3 +179,9 @@ async def change_note_status(changeNoteSchema: ChangeNoteStatusSchema, session: 
     await session.commit()
 
     return {'success': True}
+
+
+
+if __name__ == '__main__':
+    port = int(environ.get('PORT', '8000'))
+    uvicorn.run('main:app', host='0.0.0.0', port=port)
