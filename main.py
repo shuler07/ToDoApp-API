@@ -6,7 +6,11 @@ from sqlalchemy import select, update
 
 from jose import exceptions
 
+from database import db
+
 from os import environ
+
+from contextlib import asynccontextmanager
 
 from database import sessionDep
 from auth import authentication
@@ -15,7 +19,12 @@ from models.notesmodel import NotesModel
 from schemas.userschema import UserCredsSchema, UserAuthSchema
 from schemas.notesschema import CreateNoteSchema, ChangeNoteStatusSchema
 
-app = FastAPI(title='ToDoApp API', version='1.00')
+@asynccontextmanager
+async def lifespan():
+    await db.create_all_tables()
+    print('Tables created')
+
+app = FastAPI(title='ToDoApp API', version='1.00', lifespan=lifespan)
 
 # Setup middleware
 

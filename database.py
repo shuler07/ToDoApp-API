@@ -35,11 +35,4 @@ class Database:
 
 db = Database()
 
-# Creating loop (For windows) to use special selector (compatible with psycopg)
-loop = asyncio.SelectorEventLoop(selectors.SelectSelector())
-try:
-    loop.run_until_complete(db.create_all_tables())
-except:
-    loop.close()
-
 sessionDep = Annotated[AsyncSession, Depends(db.get_session)]
