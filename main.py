@@ -21,7 +21,7 @@ app = FastAPI(title='ToDoApp API', version='1.00')
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['https://shuler07.github.io/'],
+    allow_origins=['https://shuler07.github.io'],
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*']
