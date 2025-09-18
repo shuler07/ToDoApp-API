@@ -84,6 +84,7 @@ async def register(creds: UserCredsSchema, response: Response, session: sessionD
 
     if user != None:
         raise HTTPException(401, 'User with such email already existing')
+    print('User:', user)
     
     new_user = UserModel(
         email=creds.email,
@@ -91,6 +92,7 @@ async def register(creds: UserCredsSchema, response: Response, session: sessionD
     )
     session.add(new_user)
     await session.commit()
+    print('New user:', new_user)
 
     query = select(UserModel.uid).where(UserModel.email == creds.email)
     result = await session.execute(query)
@@ -98,10 +100,12 @@ async def register(creds: UserCredsSchema, response: Response, session: sessionD
 
     if uid == None:
         raise HTTPException(404, 'User not found')
+    print('Uid:', uid)
     
     access_token = authentication.auth.create_access_token(uid=uid)
     refresh_token = authentication.auth.create_refresh_token(uid=uid)
     response.set_cookie(authentication.config.JWT_REFRESH_COOKIE_NAME, refresh_token)
+    print('Cookie set')
 
     return {'isLoggedIn': True, 'access_token': access_token, 'uid': uid}
 
