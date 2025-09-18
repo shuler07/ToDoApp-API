@@ -102,7 +102,6 @@ async def register(creds: UserCredsSchema, response: Response, session: sessionD
     access_token = authentication.auth.create_access_token(uid=str(uid))
     refresh_token = authentication.auth.create_refresh_token(uid=str(uid))
     response.set_cookie(key=authentication.config.JWT_REFRESH_COOKIE_NAME, value=refresh_token, secure=True, samesite='none')
-    print('Cookie set')
 
     return {'isLoggedIn': True, 'access_token': access_token, 'uid': uid}
 
@@ -121,7 +120,6 @@ async def login(creds: UserCredsSchema, response: Response, session: sessionDep)
     access_token = authentication.auth.create_access_token(uid=str(user.uid))
     refresh_token = authentication.auth.create_refresh_token(uid=str(user.uid))
     response.set_cookie(key=authentication.config.JWT_REFRESH_COOKIE_NAME, value=refresh_token, secure=True, samesite='none')
-    print('Cookie set')
     
     return {'isLoggedIn': True, 'access_token': access_token, 'uid': user.uid}
         
