@@ -23,6 +23,7 @@ from schemas.notesschema import CreateNoteSchema, ChangeNoteStatusSchema
 async def lifespan(app: FastAPI):
     await db.create_all_tables()
     print('Tables created')
+    yield
 
 app = FastAPI(title='ToDoApp API', version='1.00', lifespan=lifespan)
 
