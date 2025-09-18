@@ -90,7 +90,7 @@ async def register(creds: UserCredsSchema, response: Response, session: sessionD
         password=creds.password
     )
     session.add(new_user)
-    session.commit()
+    await session.commit()
 
     query = select(UserModel.uid).where(UserModel.email == creds.email)
     result = await session.execute(query)
