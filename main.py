@@ -103,8 +103,10 @@ async def register(creds: UserCredsSchema, response: Response, session: sessionD
     print('Uid:', uid)
     
     access_token = authentication.auth.create_access_token(uid=uid)
+    print('Generated access token:', access_token)
     refresh_token = authentication.auth.create_refresh_token(uid=uid)
-    response.set_cookie(authentication.config.JWT_REFRESH_COOKIE_NAME, refresh_token)
+    print('Generated refresh token:', refresh_token)
+    await response.set_cookie(authentication.config.JWT_REFRESH_COOKIE_NAME, refresh_token)
     print('Cookie set')
 
     return {'isLoggedIn': True, 'access_token': access_token, 'uid': uid}
