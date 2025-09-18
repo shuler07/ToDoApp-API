@@ -20,7 +20,7 @@ from schemas.userschema import UserCredsSchema, UserAuthSchema
 from schemas.notesschema import CreateNoteSchema, ChangeNoteStatusSchema
 
 @asynccontextmanager
-async def lifespan():
+async def lifespan(app: FastAPI):
     await db.create_all_tables()
     print('Tables created')
 
