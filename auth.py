@@ -18,7 +18,7 @@ class Authentication:
         try:
             return jwt.decode(token=token, key=self.config.JWT_SECRET_KEY, algorithms='HS256')
         except:
-            return dict()
+            return {}
     
     def get_uid_from_token(self, token: str) -> str | None:
         try:

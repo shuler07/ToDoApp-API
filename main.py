@@ -1,18 +1,12 @@
 from fastapi import FastAPI, HTTPException, Response, Depends, Cookie
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-
 from sqlalchemy import select, update
-
 from jose import exceptions
-
-from database import db
-
 from os import environ
-
 from contextlib import asynccontextmanager
 
-from database import sessionDep
+from database import sessionDep, db
 from auth import authentication
 from models.usermodel import UserModel
 from models.notesmodel import NotesModel
@@ -62,18 +56,23 @@ def get_auth_data(userAuth: UserAuthSchema):
 
 @app.post('/refresh', summary='Refresh token', tags=['Authentication'], dependencies=[Depends(authentication.auth.refresh_token_required)])
 def refresh_token(response: Response, refresh_token: str = Cookie(None, alias=authentication.config.JWT_REFRESH_COOKIE_NAME)):
-    print('Refreshing token', refresh_token)
+    print('Refreshing token:', refresh_token)
+
     try:
         payload = authentication.decode_token(refresh_token)
-        print('payload:', payload)
+        print('Payload:', payload)
+        uid = payload.get('sub')
 
-        new_access_token = authentication.auth.create_access_token(payload.get('sub'))
-        new_refresh_token = authentication.auth.create_refresh_token(payload.get('sub'))
+        if uid is None:
+            return {'isLoggedIn': False}
+
+        new_access_token = authentication.auth.create_access_token(uid)
+        new_refresh_token = authentication.auth.create_refresh_token(uid)
         response.set_cookie(authentication.config.JWT_REFRESH_COOKIE_NAME, new_refresh_token)
 
         return {'isLoggedIn': True, 'access_token': new_access_token}
     except:
-        print('Sonething went wrong')
+        print('Something went wrong')
         return {'isLoggedIn': False}
 
 @app.post('/register', summary='Register', tags=['Authentication'])
@@ -103,7 +102,7 @@ async def register(creds: UserCredsSchema, response: Response, session: sessionD
     refresh_token = authentication.auth.create_refresh_token(uid=str(uid))
     response.set_cookie(key=authentication.config.JWT_REFRESH_COOKIE_NAME, value=refresh_token, secure=True, samesite='none')
 
-    return {'isLoggedIn': True, 'access_token': access_token, 'uid': uid}
+    return {'isLoggedIn': True, 'access_token': access_token}
 
 @app.post('/login', summary='Login', tags=['Authentication'])
 async def login(creds: UserCredsSchema, response: Response, session: sessionDep):
