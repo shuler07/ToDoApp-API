@@ -1,14 +1,8 @@
-from typing import Annotated, AsyncGenerator
-
+from typing import AsyncGenerator
 from fastapi import Depends
-
-import asyncio
-import selectors
-
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.asyncio.engine import create_async_engine
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession, AsyncEngine
-
 from dotenv import load_dotenv
 from os import getenv
 
@@ -32,17 +26,11 @@ class Database:
         async with self.session() as ses:
             yield ses
 
+    def get_session_dep(self) -> AsyncSession:
+        return Depends(self.get_session)
+
     async def create_all_tables(self) -> None:
         async with self.get_engine().begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
 db = Database()
-
-# Creating loop (For windows) to use special selector (compatible with psycopg)
-loop = asyncio.SelectorEventLoop(selectors.SelectSelector())
-try:
-    loop.run_until_complete(db.create_all_tables())
-except:
-    loop.close()
-
-sessionDep = Annotated[AsyncSession, Depends(db.get_session)]

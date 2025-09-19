@@ -29,6 +29,6 @@ class Authentication:
     
     def validate_token(self, token: str) -> bool:
         uid = self.get_uid_from_token(token=token)
-        return False if uid is None else True
+        return uid is not None
     
 authentication = Authentication()
