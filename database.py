@@ -1,4 +1,5 @@
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Annotated
+from fastapi import Depends
 
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.asyncio.engine import create_async_engine
@@ -24,11 +25,10 @@ class Database:
         async with self.session() as ses:
             yield ses
 
-    def get_session_dep(self) -> AsyncSession:
-        return self.get_session()
-
     async def create_all_tables(self) -> None:
         async with self.get_engine().begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
 db = Database()
+
+sessionDep = Annotated[AsyncSession, Depends(db.get_session)]

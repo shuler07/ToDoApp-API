@@ -2,12 +2,11 @@ from fastapi import FastAPI, HTTPException, Response, Depends, Cookie
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
 from jose import exceptions
 from os import environ
 from contextlib import asynccontextmanager
 
-from database import db
+from database import db, sessionDep
 from auth import authentication
 from models.usermodel import UserModel
 from models.notesmodel import NotesModel
@@ -20,7 +19,7 @@ async def lifespan(app: FastAPI):
     print('Tables created')
     yield
 
-app = FastAPI(title='ToDoApp API', version='1.00', lifespan=lifespan)
+app = FastAPI(title='ToDoApp API', version='1.01', lifespan=lifespan)
 
 # Setup middleware
 
@@ -77,7 +76,7 @@ def refresh_token(response: Response, refresh_token: str = Cookie(None, alias=au
         return {'isLoggedIn': False}
 
 @app.post('/register', summary='Register', tags=['Authentication'])
-async def register(creds: UserCredsSchema, response: Response, session: AsyncSession = db.get_session_dep()):
+async def register(creds: UserCredsSchema, response: Response, session: sessionDep):
     query = select(UserModel).where(UserModel.email == creds.email)
     result = await session.execute(query)
     user = result.scalar_one_or_none()
@@ -106,7 +105,7 @@ async def register(creds: UserCredsSchema, response: Response, session: AsyncSes
     return {'isLoggedIn': True, 'access_token': access_token}
 
 @app.post('/login', summary='Login', tags=['Authentication'])
-async def login(creds: UserCredsSchema, response: Response, session: AsyncSession = db.get_session_dep()):
+async def login(creds: UserCredsSchema, response: Response, session: sessionDep):
     query = select(UserModel).where(UserModel.email == creds.email)
     result = await session.execute(query)
     user = result.scalar_one_or_none()
@@ -144,7 +143,7 @@ def sign_out(userAuth: UserAuthSchema, response: Response, refresh_token: str = 
 # Endpoints -> Notes
 
 @app.post('/create_new_note', summary='Create new note', tags=['Notes'])
-async def create_new_note(createNote: CreateNoteSchema, session: AsyncSession = db.get_session_dep()):
+async def create_new_note(createNote: CreateNoteSchema, session: sessionDep):
     access_token = createNote.access_token
     if access_token is None:
         raise HTTPException(401, 'Access token not found')
@@ -168,7 +167,7 @@ async def create_new_note(createNote: CreateNoteSchema, session: AsyncSession = 
         return {'success': False}
 
 @app.put('/get_notes', summary='Get notes', tags=['Notes'])
-async def get_notes(userAuth: UserAuthSchema, session: AsyncSession = db.get_session_dep()):
+async def get_notes(userAuth: UserAuthSchema, session: sessionDep):
     access_token = userAuth.access_token
     if access_token is None:
         raise HTTPException(401, 'Access token not found')
@@ -187,7 +186,7 @@ async def get_notes(userAuth: UserAuthSchema, session: AsyncSession = db.get_ses
         raise HTTPException('500', 'Something went wrong')
 
 @app.put('/change_note_status', summary='Change note status', tags=['Notes'])
-async def change_note_status(changeNoteSchema: ChangeNoteStatusSchema, session: AsyncSession = db.get_session_dep()):
+async def change_note_status(changeNoteSchema: ChangeNoteStatusSchema, session: sessionDep):
     access_token = changeNoteSchema.access_token
     if access_token is None:
         raise HTTPException(401, 'Access token not found')
