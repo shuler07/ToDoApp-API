@@ -24,6 +24,7 @@ class Authentication:
         try:
             payload = self.decode_token(token=token)
             uid = payload.get('sub')
+
             return uid
         except:
             print(f'Token {token} is not valid')
@@ -31,6 +32,6 @@ class Authentication:
     
     def validate_token(self, token: str) -> bool:
         uid = self.get_uid_from_token(token=token)
-        return False if uid is None else True
+        return uid is not None
     
 authentication = Authentication()
