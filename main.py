@@ -1,5 +1,8 @@
-from fastapi import FastAPI, HTTPException, Response, Depends, Cookie
+from fastapi import FastAPI, HTTPException, Response, Request, Depends, Cookie
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import uvicorn
 from sqlalchemy import select, update
 from jose import exceptions
@@ -12,6 +15,8 @@ from models.notesmodel import NotesModel
 from schemas.userschema import UserCredsSchema, UserAuthSchema
 from schemas.notesschema import CreateNoteSchema, ChangeNoteStatusSchema
 
+# Setup lifespan for API and app
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await db.create_all_tables()
@@ -20,7 +25,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# Setup middleware
+# Setup CORS middleware
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,10 +35,18 @@ app.add_middleware(
     allow_headers=['*']
 )
 
+# Setup limiter
+
+limiter = Limiter(get_remote_address, ['5 per minute', '50 per hour'])
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # Endpoints -> Authentication
 
-@app.put('/me', summary='Check access token', tags=['Authentication'])
-def get_auth_data(userAuth: UserAuthSchema):
+@app.put('/authenticate_user', summary='Validate access token', tags=['Authentication'])
+@limiter.shared_limit('10 per minute', 'auth')
+def authenticate_user(userAuth: UserAuthSchema, request: Request):
     access_token = userAuth.access_token
     print('Checking access token:', access_token)
     
@@ -53,8 +66,9 @@ def get_auth_data(userAuth: UserAuthSchema):
         print('Access token is expired')
         return {'isLoggedIn': False}
 
-@app.put('/refresh', summary='Refresh token', tags=['Authentication'], dependencies=[Depends(authentication.auth.refresh_token_required)])
-def refresh_token(response: Response, refresh_token: str = Cookie(None, alias=authentication.config.JWT_REFRESH_COOKIE_NAME)):
+@app.put('/refresh_user', summary='Create new access token from refresh token', tags=['Authentication'], dependencies=[Depends(authentication.auth.refresh_token_required)])
+@limiter.shared_limit('10 per minute', 'auth')
+def refresh_user(response: Response, request: Request, refresh_token: str = Cookie(None, alias=authentication.config.JWT_REFRESH_COOKIE_NAME)):
     print('Checking refresh token:', refresh_token)
 
     try:
@@ -75,6 +89,7 @@ def refresh_token(response: Response, refresh_token: str = Cookie(None, alias=au
         raise HTTPException(500, 'Something went wrong')
 
 @app.post('/register', summary='Register', tags=['Authentication'])
+@limiter.shared_limit('10 per minute', 'auth')
 async def register(creds: UserCredsSchema, response: Response, session: sessionDep):
     query = select(UserModel).where(UserModel.email == creds.email)
     result = await session.execute(query)
@@ -104,6 +119,7 @@ async def register(creds: UserCredsSchema, response: Response, session: sessionD
     return {'isLoggedIn': True, 'access_token': access_token}
 
 @app.post('/login', summary='Login', tags=['Authentication'])
+@limiter.shared_limit('10 per minute', 'auth')
 async def login(creds: UserCredsSchema, response: Response, session: sessionDep):
     query = select(UserModel).where(UserModel.email == creds.email)
     result = await session.execute(query)
@@ -124,6 +140,7 @@ async def login(creds: UserCredsSchema, response: Response, session: sessionDep)
     return {'isLoggedIn': True, 'access_token': access_token}
         
 @app.delete('/signout', summary='Sign out', tags=['Authentication'])
+@limiter.shared_limit('10 per minute', 'auth')
 def sign_out(userAuth: UserAuthSchema, response: Response, refresh_token: str = Cookie(None, alias=authentication.config.JWT_REFRESH_COOKIE_NAME)):
     access_token = userAuth.access_token
 
@@ -143,6 +160,7 @@ def sign_out(userAuth: UserAuthSchema, response: Response, refresh_token: str = 
 # Endpoints -> Notes
 
 @app.post('/create_new_note', summary='Create new note', tags=['Notes'])
+@limiter.shared_limit('15 per minute', 'notes')
 async def create_new_note(createNote: CreateNoteSchema, session: sessionDep):
     access_token = createNote.access_token
     if access_token is None:
@@ -167,6 +185,7 @@ async def create_new_note(createNote: CreateNoteSchema, session: sessionDep):
         return {'success': False}
 
 @app.put('/get_notes', summary='Get notes', tags=['Notes'])
+@limiter.shared_limit('15 per minute', 'notes')
 async def get_notes(userAuth: UserAuthSchema, session: sessionDep):
     access_token = userAuth.access_token
     if access_token is None:
@@ -186,6 +205,7 @@ async def get_notes(userAuth: UserAuthSchema, session: sessionDep):
         raise HTTPException(500, 'Something went wrong')
 
 @app.put('/change_note_status', summary='Change note status', tags=['Notes'])
+@limiter.shared_limit('15 per minute', 'notes')
 async def change_note_status(changeNoteSchema: ChangeNoteStatusSchema, session: sessionDep):
     access_token = changeNoteSchema.access_token
     if access_token is None:
