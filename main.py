@@ -90,7 +90,7 @@ def refresh_user(response: Response, request: Request, refresh_token: str = Cook
 
 @app.post('/register', summary='Register', tags=['Authentication'])
 @limiter.shared_limit('10 per minute', 'auth')
-async def register(creds: UserCredsSchema, response: Response, session: sessionDep):
+async def register(creds: UserCredsSchema, response: Response, request: Request, session: sessionDep):
     query = select(UserModel).where(UserModel.email == creds.email)
     result = await session.execute(query)
     user = result.scalar_one_or_none()
@@ -120,7 +120,7 @@ async def register(creds: UserCredsSchema, response: Response, session: sessionD
 
 @app.post('/login', summary='Login', tags=['Authentication'])
 @limiter.shared_limit('10 per minute', 'auth')
-async def login(creds: UserCredsSchema, response: Response, session: sessionDep):
+async def login(creds: UserCredsSchema, response: Response, request: Request, session: sessionDep):
     query = select(UserModel).where(UserModel.email == creds.email)
     result = await session.execute(query)
     user = result.scalar_one_or_none()
@@ -141,7 +141,7 @@ async def login(creds: UserCredsSchema, response: Response, session: sessionDep)
         
 @app.delete('/signout', summary='Sign out', tags=['Authentication'])
 @limiter.shared_limit('10 per minute', 'auth')
-def sign_out(userAuth: UserAuthSchema, response: Response, refresh_token: str = Cookie(None, alias=authentication.config.JWT_REFRESH_COOKIE_NAME)):
+def sign_out(userAuth: UserAuthSchema, response: Response, request: Request, refresh_token: str = Cookie(None, alias=authentication.config.JWT_REFRESH_COOKIE_NAME)):
     access_token = userAuth.access_token
 
     if access_token is None:
@@ -161,7 +161,7 @@ def sign_out(userAuth: UserAuthSchema, response: Response, refresh_token: str = 
 
 @app.post('/create_new_note', summary='Create new note', tags=['Notes'])
 @limiter.shared_limit('15 per minute', 'notes')
-async def create_new_note(createNote: CreateNoteSchema, session: sessionDep):
+async def create_new_note(createNote: CreateNoteSchema, request: Request, session: sessionDep):
     access_token = createNote.access_token
     if access_token is None:
         raise HTTPException(401, 'Access token not found')
@@ -186,7 +186,7 @@ async def create_new_note(createNote: CreateNoteSchema, session: sessionDep):
 
 @app.put('/get_notes', summary='Get notes', tags=['Notes'])
 @limiter.shared_limit('15 per minute', 'notes')
-async def get_notes(userAuth: UserAuthSchema, session: sessionDep):
+async def get_notes(userAuth: UserAuthSchema, request: Request, session: sessionDep):
     access_token = userAuth.access_token
     if access_token is None:
         raise HTTPException(401, 'Invalid access token')
@@ -206,7 +206,7 @@ async def get_notes(userAuth: UserAuthSchema, session: sessionDep):
 
 @app.put('/change_note_status', summary='Change note status', tags=['Notes'])
 @limiter.shared_limit('15 per minute', 'notes')
-async def change_note_status(changeNoteSchema: ChangeNoteStatusSchema, session: sessionDep):
+async def change_note_status(changeNoteSchema: ChangeNoteStatusSchema, request: Request, session: sessionDep):
     access_token = changeNoteSchema.access_token
     if access_token is None:
         raise HTTPException(401, 'Access token not found')
