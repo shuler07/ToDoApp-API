@@ -10,7 +10,7 @@ from jose.exceptions import ExpiredSignatureError
 from authx.exceptions import MissingTokenError
 from contextlib import asynccontextmanager
 
-from database import db, sessionDep
+from database import pg, sessionDep, rd
 from auth import authentication
 from models.usermodel import UserModel
 from models.notesmodel import NotesModel
@@ -22,7 +22,7 @@ from schemas.notesschema import CreateNoteSchema, ChangeNoteStatusSchema
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await db.create_all_tables()
+    await pg.create_all_tables()
     print("All tables created!")
     yield
 
@@ -42,22 +42,23 @@ app.add_middleware(
 # Setup limiter
 
 limiter = Limiter(get_remote_address, ["5 per minute", "50 per hour"])
-
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Setup exceptions
 
-@app.exception_handler(MissingTokenError)
-async def missing_token_error_handler(request: Request, exc: MissingTokenError):
+
+def missing_token_error_handler(request: Request, exc: MissingTokenError):
     return JSONResponse("Refresh token not found", 401)
 
+
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(MissingTokenError, missing_token_error_handler)
 
 # Endpoints -> Authentication
 
 
 @app.put("/authenticate_user", summary="Validate access token", tags=["Authentication"])
-@limiter.shared_limit("10 per minute", "auth")
+@limiter.shared_limit("30 per minute", "auth")
 async def authenticate_user(userAuth: UserAuthSchema, request: Request):
     access_token = userAuth.access_token
     print("Checking access token:", access_token)
@@ -85,7 +86,7 @@ async def authenticate_user(userAuth: UserAuthSchema, request: Request):
     tags=["Authentication"],
     dependencies=[Depends(authentication.auth.refresh_token_required)],
 )
-@limiter.shared_limit("10 per minute", "auth")
+@limiter.shared_limit("30 per minute", "auth")
 async def refresh_user(
     response: Response,
     request: Request,
@@ -116,7 +117,7 @@ async def refresh_user(
 
 
 @app.post("/register", summary="Register", tags=["Authentication"])
-@limiter.shared_limit("10 per minute", "auth")
+@limiter.shared_limit("30 per minute", "auth")
 async def register(
     creds: UserCredsSchema, response: Response, request: Request, session: sessionDep
 ):
@@ -146,7 +147,7 @@ async def register(
 
 
 @app.post("/login", summary="Login", tags=["Authentication"])
-@limiter.shared_limit("10 per minute", "auth")
+@limiter.shared_limit("30 per minute", "auth")
 async def login(
     creds: UserCredsSchema, response: Response, request: Request, session: sessionDep
 ):
@@ -170,7 +171,7 @@ async def login(
 
 
 @app.delete("/signout", summary="Sign out", tags=["Authentication"])
-@limiter.shared_limit("10 per minute", "auth")
+@limiter.shared_limit("30 per minute", "auth")
 async def sign_out(
     userAuth: UserAuthSchema,
     response: Response,
@@ -189,6 +190,9 @@ async def sign_out(
 
     if not authentication.validate_token(access_token):
         return JSONResponse("Invalid access token", 401)
+    
+    if not authentication.validate_token(refresh_token):
+        return JSONResponse('Invalid refresh token', 401)
 
     response.delete_cookie(authentication.config.JWT_REFRESH_COOKIE_NAME)
 
@@ -199,7 +203,7 @@ async def sign_out(
 
 
 @app.post("/create_new_note", summary="Create new note", tags=["Notes"])
-@limiter.shared_limit("15 per minute", "notes")
+@limiter.shared_limit("20 per minute", "notes")
 async def create_new_note(
     createNote: CreateNoteSchema, request: Request, session: sessionDep
 ):
@@ -227,7 +231,7 @@ async def create_new_note(
 
 
 @app.put("/get_notes", summary="Get notes", tags=["Notes"])
-@limiter.shared_limit("15 per minute", "notes")
+@limiter.shared_limit("20 per minute", "notes")
 async def get_notes(userAuth: UserAuthSchema, request: Request, session: sessionDep):
     access_token = userAuth.access_token
     if access_token is None:
@@ -241,15 +245,15 @@ async def get_notes(userAuth: UserAuthSchema, request: Request, session: session
         query = select(NotesModel).where(NotesModel.uid == int(uid))
         result = await session.execute(query)
         notes = result.scalars().all()
-        
+
         return notes
     except:
-        print("Something went wrong with postgres [Get notes]")
+        print("Something went wrong [Get notes]")
         return JSONResponse("Something went wrong", 500)
 
 
 @app.put("/change_note_status", summary="Change note status", tags=["Notes"])
-@limiter.shared_limit("15 per minute", "notes")
+@limiter.shared_limit("20 per minute", "notes")
 async def change_note_status(
     changeNoteSchema: ChangeNoteStatusSchema, request: Request, session: sessionDep
 ):
