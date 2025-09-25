@@ -1,14 +1,10 @@
-from typing import Annotated, AsyncGenerator
-
+from typing import AsyncGenerator, Annotated, Any
 from fastapi import Depends
-
-import asyncio
-import selectors
-
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.asyncio.engine import create_async_engine
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession, AsyncEngine
-
+from redis.asyncio.client import Redis
+import json
 from dotenv import load_dotenv
 from os import getenv
 
@@ -17,7 +13,7 @@ load_dotenv()
 # Base class for all databases to create with one command
 class Base(DeclarativeBase): pass
 
-class Database:
+class PostgresDB:
     def __init__(self, url: str | None = getenv('URL_DATABASE')) -> None:
         if url is None:
             raise ValueError('URL of database not found')
@@ -36,13 +32,27 @@ class Database:
         async with self.get_engine().begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
-db = Database()
+pg = PostgresDB()
+sessionDep = Annotated[AsyncSession, Depends(pg.get_session)]
 
-# Creating loop (For windows) to use special selector (compatible with psycopg)
-loop = asyncio.SelectorEventLoop(selectors.SelectSelector())
-try:
-    loop.run_until_complete(db.create_all_tables())
-except:
-    loop.close()
 
-sessionDep = Annotated[AsyncSession, Depends(db.get_session)]
+class RedisDB:
+
+    def __init__(self) -> None:
+        self.redis = Redis(host='localhost', port='6379', db=0)
+    
+    async def set_cache(self, key: str, value: Any, exp: int | None) -> None:
+        try:
+            await self.redis.set(key, json.dumps(value), exp)
+        except Exception as e:
+            print(f'Error while saving data to redis: {key} - {value} ({exp}s)', e)
+    
+    async def get_cache(self, key: str) -> Any | None:
+        try:
+            data = await self.redis.get(key)
+            return json.loads(data) if data else None
+        except:
+            print(f'Error while getting data from redis: {key}')
+            return None
+
+rd = RedisDB()
