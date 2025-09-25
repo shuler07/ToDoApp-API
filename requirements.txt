@@ -1,6 +1,8 @@
-fastapi[standard]
-uvicorn
-sqlalchemy
-AuthX
-jose
-psycopg
+fastapi[standard]==0.116.1
+slowapi==0.1.9
+uvicorn==0.35.0
+sqlalchemy==2.0.43
+AuthX==1.4.3
+jose==1.0.0
+psycopg==3.2.10
+redis==6.4.0

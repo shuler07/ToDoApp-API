@@ -24,7 +24,7 @@ class Authentication:
         try:
             payload = self.decode_token(token=token)
             uid = payload.get('sub')
-
+            
             return uid
         except:
             print(f'Token {token} is not valid')
