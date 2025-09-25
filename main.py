@@ -9,6 +9,7 @@ from sqlalchemy import select, update
 from jose.exceptions import ExpiredSignatureError
 from authx.exceptions import MissingTokenError
 from contextlib import asynccontextmanager
+from os import environ
 
 from database import pg, sessionDep, rd
 from auth import authentication
@@ -280,4 +281,5 @@ async def change_note_status(
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", reload=True)
+    port = int(environ.get('PORT', '8000'))
+    uvicorn.run("main:app", host='0.0.0.0', port=port)
