@@ -19,4 +19,6 @@ API подключается через переменные окружения 
 4. Подтянуть образ redis: docker image pull redis:latest
 5. Поднять композицию из API, postgres и redis: docker-compose up -d
 
-После запуска API будет находится по адресу http://localhost:8000
+После запуска API будет находится по адресу - http://localhost:8000, документация - http://localhost:8000/docs. Сервер принимает запросы с адреса - http://localhost:5173
+Чтобы настроить адреса, с которых сервер принимает запросы, измените middleware в файле main.py, перечислив свои адреса через запятую, в кавычках каждый:
+#### allow_origins=["http://my_address:my_port", "..."]
