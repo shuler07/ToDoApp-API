@@ -13,7 +13,7 @@ from database import pg, sessionDep, rd
 from auth import authentication
 from models.usermodel import UserModel
 from models.notesmodel import NotesModel
-from schemas.userschema import UserCredsSchema, UserAuthSchema
+from schemas.userschema import UserCredsSchema
 from schemas.notesschema import CreateNoteSchema, ChangeNoteStatusSchema
 
 # Setup lifespan for API and app
@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan, version=0.2)
+app = FastAPI(lifespan=lifespan, version='0.2')
 
 # Setup CORS middleware
 
@@ -47,7 +47,10 @@ app.state.limiter = limiter
 
 
 def missing_token_error_handler(request: Request, exc: MissingTokenError):
-    return JSONResponse("Refresh token not found", 401)
+    if 'access' in str(exc):
+        return JSONResponse("Access token not found", 401)
+    else:
+        return JSONResponse('Refresh token not found', 401)
 
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -56,14 +59,20 @@ app.add_exception_handler(MissingTokenError, missing_token_error_handler)
 # Endpoints -> Authentication
 
 
-@app.put("/authenticate_user", summary="Validate access token", tags=["Authentication"])
+@app.get(
+    "/authenticate_user",
+    summary="Validate access token",
+    tags=["Authentication"],
+    dependencies=[Depends(authentication.auth.access_token_required)],
+)
 @limiter.shared_limit("30 per minute", "auth")
-async def authenticate_user(userAuth: UserAuthSchema, request: Request):
-    access_token = userAuth.access_token
+async def authenticate_user(
+    request: Request,
+    access_token: str = Cookie(
+        None, alias=authentication.config.JWT_ACCESS_COOKIE_NAME
+    ),
+):
     print("Checking access token:", access_token)
-
-    if access_token is None:
-        return JSONResponse("Access token not found", 401)
 
     try:
         payload = authentication.decode_token(access_token)
@@ -79,7 +88,7 @@ async def authenticate_user(userAuth: UserAuthSchema, request: Request):
         return {"isLoggedIn": False}
 
 
-@app.put(
+@app.get(
     "/refresh_user",
     summary="Create new access token from refresh token",
     tags=["Authentication"],
@@ -106,10 +115,13 @@ async def refresh_user(
         new_access_token = authentication.auth.create_access_token(uid)
         new_refresh_token = authentication.auth.create_refresh_token(uid)
         response.set_cookie(
+            authentication.config.JWT_ACCESS_COOKIE_NAME, new_access_token
+        )
+        response.set_cookie(
             authentication.config.JWT_REFRESH_COOKIE_NAME, new_refresh_token
         )
 
-        return {"isLoggedIn": True, "access_token": new_access_token}
+        return {"isLoggedIn": True}
     except:
         print("Something went wrong [Refresh user]")
         return JSONResponse("Something went wrong", 500)
@@ -140,9 +152,10 @@ async def register(
 
     access_token = authentication.auth.create_access_token(uid)
     refresh_token = authentication.auth.create_refresh_token(uid)
+    response.set_cookie(authentication.config.JWT_ACCESS_COOKIE_NAME, access_token)
     response.set_cookie(authentication.config.JWT_REFRESH_COOKIE_NAME, refresh_token)
 
-    return {"isLoggedIn": True, "access_token": access_token}
+    return {"isLoggedIn": True}
 
 
 @app.post("/login", summary="Login", tags=["Authentication"])
@@ -164,35 +177,39 @@ async def login(
 
     access_token = authentication.auth.create_access_token(uid)
     refresh_token = authentication.auth.create_refresh_token(uid)
+    response.set_cookie(authentication.config.JWT_ACCESS_COOKIE_NAME, access_token)
     response.set_cookie(authentication.config.JWT_REFRESH_COOKIE_NAME, refresh_token)
 
-    return {"isLoggedIn": True, "access_token": access_token}
+    return {"isLoggedIn": True}
 
 
-@app.delete("/signout", summary="Sign out", tags=["Authentication"])
+@app.delete(
+    "/signout",
+    summary="Sign out",
+    tags=["Authentication"],
+    dependencies=[
+        Depends(authentication.auth.access_token_required),
+        Depends(authentication.auth.refresh_token_required),
+    ],
+)
 @limiter.shared_limit("30 per minute", "auth")
 async def sign_out(
-    userAuth: UserAuthSchema,
     response: Response,
     request: Request,
+    access_token: str = Cookie(
+        None, alias=authentication.config.JWT_ACCESS_COOKIE_NAME
+    ),
     refresh_token: str = Cookie(
         None, alias=authentication.config.JWT_REFRESH_COOKIE_NAME
     ),
 ):
-    access_token = userAuth.access_token
-
-    if access_token is None:
-        return JSONResponse("Access token not found", 401)
-
-    if refresh_token is None:
-        return JSONResponse("Refresh token not found", 401)
-
     if not authentication.validate_token(access_token):
         return JSONResponse("Invalid access token", 401)
-    
-    if not authentication.validate_token(refresh_token):
-        return JSONResponse('Invalid refresh token', 401)
 
+    if not authentication.validate_token(refresh_token):
+        return JSONResponse("Invalid refresh token", 401)
+
+    response.delete_cookie(authentication.config.JWT_ACCESS_COOKIE_NAME)
     response.delete_cookie(authentication.config.JWT_REFRESH_COOKIE_NAME)
 
     return {"isLoggedIn": False}
@@ -201,15 +218,21 @@ async def sign_out(
 # Endpoints -> Notes
 
 
-@app.post("/create_new_note", summary="Create new note", tags=["Notes"])
+@app.post(
+    "/create_new_note",
+    summary="Create new note",
+    tags=["Notes"],
+    dependencies=[Depends(authentication.auth.access_token_required)],
+)
 @limiter.shared_limit("20 per minute", "notes")
 async def create_new_note(
-    createNote: CreateNoteSchema, request: Request, session: sessionDep
+    createNote: CreateNoteSchema,
+    request: Request,
+    session: sessionDep,
+    access_token: str = Cookie(
+        None, alias=authentication.config.JWT_ACCESS_COOKIE_NAME
+    ),
 ):
-    access_token = createNote.access_token
-    if access_token is None:
-        return JSONResponse("Access token not found", 401)
-
     uid = authentication.get_uid_from_token(access_token)
     if uid is None:
         return JSONResponse("Invalid access token", 401)
@@ -229,13 +252,20 @@ async def create_new_note(
         return {"success": False}
 
 
-@app.put("/get_notes", summary="Get notes", tags=["Notes"])
+@app.get(
+    "/get_notes",
+    summary="Get notes",
+    tags=["Notes"],
+    dependencies=[Depends(authentication.auth.access_token_required)],
+)
 @limiter.shared_limit("20 per minute", "notes")
-async def get_notes(userAuth: UserAuthSchema, request: Request, session: sessionDep):
-    access_token = userAuth.access_token
-    if access_token is None:
-        return JSONResponse("Invalid access token", 401)
-
+async def get_notes(
+    request: Request,
+    session: sessionDep,
+    access_token: str = Cookie(
+        None, alias=authentication.config.JWT_ACCESS_COOKIE_NAME
+    ),
+):
     uid = authentication.get_uid_from_token(access_token)
     if uid is None:
         return JSONResponse("Invalid access token", 401)
@@ -251,15 +281,21 @@ async def get_notes(userAuth: UserAuthSchema, request: Request, session: session
         return JSONResponse("Something went wrong", 500)
 
 
-@app.put("/change_note_status", summary="Change note status", tags=["Notes"])
+@app.put(
+    "/change_note_status",
+    summary="Change note status",
+    tags=["Notes"],
+    dependencies=[Depends(authentication.auth.access_token_required)],
+)
 @limiter.shared_limit("20 per minute", "notes")
 async def change_note_status(
-    changeNoteSchema: ChangeNoteStatusSchema, request: Request, session: sessionDep
+    changeNoteSchema: ChangeNoteStatusSchema,
+    request: Request,
+    session: sessionDep,
+    access_token: str = Cookie(
+        None, alias=authentication.config.JWT_ACCESS_COOKIE_NAME
+    ),
 ):
-    access_token = changeNoteSchema.access_token
-    if access_token is None:
-        return JSONResponse("Access token not found", 401)
-
     uid = authentication.get_uid_from_token(access_token)
     if uid is None:
         return JSONResponse("Invalid access token", 401)
