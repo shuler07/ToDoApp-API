@@ -6,4 +6,4 @@ RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 EXPOSE 8000
-ENTRYPOINT ["uvicorn", "--host", "0.0.0.0", "--port", "8000", "main:app"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn --host 0.0.0.0 --port 8000 main:app"]

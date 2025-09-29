@@ -6,7 +6,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import select, update
 from jose.exceptions import ExpiredSignatureError
-from authx.exceptions import MissingTokenError
+from authx.exceptions import MissingTokenError, JWTDecodeError
 from contextlib import asynccontextmanager
 
 from database import pg, sessionDep, rd
@@ -52,9 +52,13 @@ def missing_token_error_handler(request: Request, exc: MissingTokenError):
     else:
         return JSONResponse('Refresh token not found', 401)
 
+def jwt_decode_token_error_handler(request: Request, exc: JWTDecodeError):
+    return JSONResponse('Token decode error', 401)
+
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_exception_handler(MissingTokenError, missing_token_error_handler)
+app.add_exception_handler(JWTDecodeError, jwt_decode_token_error_handler)
 
 # Endpoints -> Authentication
 
