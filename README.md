@@ -11,11 +11,12 @@
    ###### docker image pull redis:latest
 5. Создать .env файл в корневой папке, который должен выглядеть следующим образом:  
    POSTGRES_USER="имя пользователя для бд (придумать самому любое)"  
-   POSTGRES_PASSWORD="пароль пользователя для бд (придумать самому любой)"  
+   POSTGRES_PASSWORD="пароль пользователя для бд (придумать самому любой)"
+   POSTGRES_DB="название базы данных (придумать самому любое)"  
    HOST_REDIS="redis"  
    PORT_REDIS="6379"  
-   URL_DATABASE="postgresql+psycopg://{POSTGRES_USER, без скобок}:{POSTGRES_PASSWORD, без скобок}@postgres:5432/{название бд, придумать самому любое, без скобок}"  
-6. Поднять композ из API, postgres и redis:
+   URL_DATABASE="postgresql+psycopg://{POSTGRES_USER, без скобок}:{POSTGRES_PASSWORD, без скобок}@postgres:5432/{POSTGRES_DB, без скобок}"  
+7. Поднять композ из API, postgres и redis:
    ###### docker-compose up -d
 
 #### После запуска API будет находиться по адресу - http://localhost:8000 документация - http://localhost:8000/docs. Сервер принимает запросы с адреса - http://localhost:5173
