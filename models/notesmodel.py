@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import Integer, String
+from sqlalchemy import Integer, String, ARRAY
 from database import Base
 
 
@@ -11,3 +11,4 @@ class NotesModel(Base):
     title: Mapped[str] = mapped_column(String, nullable=False)
     text: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
+    tags: Mapped[list] = mapped_column(ARRAY(String), nullable=True)

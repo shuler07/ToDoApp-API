@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from sqlalchemy import select, update
+from sqlalchemy import select, update, delete
 from jose.exceptions import ExpiredSignatureError
 from authx.exceptions import MissingTokenError, JWTDecodeError
 from contextlib import asynccontextmanager
@@ -14,7 +14,7 @@ from auth import authentication
 from models.usermodel import UserModel
 from models.notesmodel import NotesModel
 from schemas.userschema import UserCredsSchema
-from schemas.notesschema import CreateNoteSchema, ChangeNoteStatusSchema
+from schemas.notesschema import NoteIdSchema, CreateNoteSchema, ChangeNoteStatusSchema
 
 # Setup lifespan for API and app
 
@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan, version='0.2')
+app = FastAPI(lifespan=lifespan, version="0.2")
 
 # Setup CORS middleware
 
@@ -47,13 +47,14 @@ app.state.limiter = limiter
 
 
 def missing_token_error_handler(request: Request, exc: MissingTokenError):
-    if 'access' in str(exc):
+    if "access" in str(exc):
         return JSONResponse("Access token not found", 401)
     else:
-        return JSONResponse('Refresh token not found', 401)
+        return JSONResponse("Refresh token not found", 401)
+
 
 def jwt_decode_token_error_handler(request: Request, exc: JWTDecodeError):
-    return JSONResponse('Token decode error', 401)
+    return JSONResponse("Token decode error", 401)
 
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -87,8 +88,11 @@ async def authenticate_user(
             return JSONResponse("Invalid access token", 401)
 
         return {"isLoggedIn": True}
-    except ExpiredSignatureError:
-        print("Access token is expired")
+    except Exception as e:
+        if issubclass(e, ExpiredSignatureError):
+            print("Access token is expired")
+        else:
+            print('Something went wrong [Authenticate user]', e)
         return {"isLoggedIn": False}
 
 
@@ -126,8 +130,11 @@ async def refresh_user(
         )
 
         return {"isLoggedIn": True}
-    except:
-        print("Something went wrong [Refresh user]")
+    except Exception as e:
+        if issubclass(e, ExpiredSignatureError):
+            print('Refresh token is expired')
+        else:
+            print("Something went wrong [Refresh user]", e)
         return JSONResponse("Something went wrong", 500)
 
 
@@ -136,30 +143,30 @@ async def refresh_user(
 async def register(
     creds: UserCredsSchema, response: Response, request: Request, session: sessionDep
 ):
-    query = select(UserModel).where(UserModel.email == creds.email)
-    result = await session.execute(query)
-    user = result.scalar_one_or_none()
+    try:
+        query = select(UserModel).where(UserModel.email == creds.email)
+        result = await session.execute(query)
+        user = result.scalar_one_or_none()
 
-    if user is not None:
-        return JSONResponse("User with such email already exists", 401)
+        if user is not None:
+            return JSONResponse("User with such email already exists", 401)
 
-    new_user = UserModel(email=creds.email, password=creds.password)
-    session.add(new_user)
-    await session.commit()
+        new_user = UserModel(email=creds.email, password=creds.password)
+        session.add(new_user)
+        await session.commit()
+        await session.refresh(new_user)
 
-    query = select(UserModel.uid).where(UserModel.email == creds.email)
-    result = await session.execute(query)
-    uid = result.scalar_one_or_none()
+        uid = str(new_user.uid)
 
-    if uid is None:
-        return JSONResponse("User not found", 401)
+        access_token = authentication.auth.create_access_token(uid)
+        refresh_token = authentication.auth.create_refresh_token(uid)
+        response.set_cookie(authentication.config.JWT_ACCESS_COOKIE_NAME, access_token)
+        response.set_cookie(authentication.config.JWT_REFRESH_COOKIE_NAME, refresh_token)
 
-    access_token = authentication.auth.create_access_token(uid)
-    refresh_token = authentication.auth.create_refresh_token(uid)
-    response.set_cookie(authentication.config.JWT_ACCESS_COOKIE_NAME, access_token)
-    response.set_cookie(authentication.config.JWT_REFRESH_COOKIE_NAME, refresh_token)
-
-    return {"isLoggedIn": True}
+        return {"isLoggedIn": True}
+    except Exception as e:
+        print('Something went wrong [Register]', e)
+        return {'isLoggedIn': False}
 
 
 @app.post("/login", summary="Login", tags=["Authentication"])
@@ -167,24 +174,28 @@ async def register(
 async def login(
     creds: UserCredsSchema, response: Response, request: Request, session: sessionDep
 ):
-    query = select(UserModel).where(UserModel.email == creds.email)
-    result = await session.execute(query)
-    user = result.scalar_one_or_none()
+    try:
+        query = select(UserModel).where(UserModel.email == creds.email)
+        result = await session.execute(query)
+        user = result.scalar_one_or_none()
 
-    if user is None:
-        return JSONResponse("Invalid email", 401)
+        if user is None:
+            return JSONResponse("Invalid email", 401)
 
-    if user.password != creds.password:
-        return JSONResponse("Invalid password", 401)
+        if user.password != creds.password:
+            return JSONResponse("Invalid password", 401)
 
-    uid = str(user.uid)
+        uid = str(user.uid)
 
-    access_token = authentication.auth.create_access_token(uid)
-    refresh_token = authentication.auth.create_refresh_token(uid)
-    response.set_cookie(authentication.config.JWT_ACCESS_COOKIE_NAME, access_token)
-    response.set_cookie(authentication.config.JWT_REFRESH_COOKIE_NAME, refresh_token)
+        access_token = authentication.auth.create_access_token(uid)
+        refresh_token = authentication.auth.create_refresh_token(uid)
+        response.set_cookie(authentication.config.JWT_ACCESS_COOKIE_NAME, access_token)
+        response.set_cookie(authentication.config.JWT_REFRESH_COOKIE_NAME, refresh_token)
 
-    return {"isLoggedIn": True}
+        return {"isLoggedIn": True}
+    except Exception as e:
+        print('Something went wrong [Login]', e)
+        return {'isLoggedIn': False}
 
 
 @app.delete(
@@ -250,9 +261,11 @@ async def create_new_note(
         )
         session.add(new_note)
         await session.commit()
-        return {"success": True}
-    except:
-        print("Something went wrong [Create new note]")
+        await session.refresh(new_note)
+        
+        return {'success': True, 'note': new_note}
+    except Exception as e:
+        print("Something went wrong [Create new note, Creating note]", e)
         return {"success": False}
 
 
@@ -280,8 +293,8 @@ async def get_notes(
         notes = result.scalars().all()
 
         return notes
-    except:
-        print("Something went wrong [Get notes]")
+    except Exception as e:
+        print("Something went wrong [Get notes]", e)
         return JSONResponse("Something went wrong", 500)
 
 
@@ -313,6 +326,34 @@ async def change_note_status(
         await session.execute(query)
         await session.commit()
         return {"success": True}
-    except:
-        print("Something went wrong [Change note status]")
+    except Exception as e:
+        print("Something went wrong [Change note status]", e)
         return {"success": False}
+
+
+@app.delete(
+    "/delete_note",
+    summary="Delete note",
+    tags=["Notes"],
+    dependencies=[Depends(authentication.auth.access_token_required)],
+)
+@limiter.shared_limit("20 per minute", "notes")
+async def delete_note(
+    noteIdSchema: NoteIdSchema,
+    session: sessionDep,
+    request: Request,
+    access_token: str = Cookie(alias=authentication.config.JWT_ACCESS_COOKIE_NAME),
+):
+    uid = authentication.get_uid_from_token(access_token)
+    if uid is None:
+        return JSONResponse('Invalid access token', 401)
+    
+    try:
+        query = delete(NotesModel).where(NotesModel.id == noteIdSchema.id)
+        await session.execute(query)
+        await session.commit()
+
+        return {'success': True}
+    except Exception as e:
+        print('Something went wrong [Delete note]', e)
+        return {'success': False}
