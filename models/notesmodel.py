@@ -11,4 +11,4 @@ class NotesModel(Base):
     title: Mapped[str] = mapped_column(String, nullable=False)
     text: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
-    tags: Mapped[list] = mapped_column(ARRAY(String), nullable=True)
+    tags: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=True, default=[])
