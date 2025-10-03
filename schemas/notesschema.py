@@ -7,5 +7,7 @@ class CreateNoteSchema(BaseModel):
     title: str = Field(min_length=1)
     text: str = Field(min_length=1)
 
-class ChangeNoteStatusSchema(NoteIdSchema):
-    status: str = Field(min_length=1)
+class NoteSchema(NoteIdSchema, CreateNoteSchema):
+    uid: int = Field(ge=1)
+    status: str = Field(min_length=1, examples=['not_completed', 'completed', 'trash'])
+    tags: list[str]
