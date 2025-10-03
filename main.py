@@ -14,7 +14,7 @@ from auth import authentication
 from models.usermodel import UserModel
 from models.notesmodel import NotesModel
 from schemas.userschema import UserCredsSchema
-from schemas.notesschema import NoteIdSchema, CreateNoteSchema, ChangeNoteStatusSchema
+from schemas.notesschema import NoteIdSchema, CreateNoteSchema, NoteSchema
 
 # Setup lifespan for API and app
 
@@ -239,7 +239,7 @@ async def sign_out(
     tags=["Notes"],
     dependencies=[Depends(authentication.auth.access_token_required)],
 )
-@limiter.shared_limit("20 per minute", "notes")
+@limiter.shared_limit("30 per minute", "notes")
 async def create_new_note(
     createNote: CreateNoteSchema,
     request: Request,
@@ -275,7 +275,7 @@ async def create_new_note(
     tags=["Notes"],
     dependencies=[Depends(authentication.auth.access_token_required)],
 )
-@limiter.shared_limit("20 per minute", "notes")
+@limiter.shared_limit("30 per minute", "notes")
 async def get_notes(
     request: Request,
     session: sessionDep,
@@ -299,14 +299,14 @@ async def get_notes(
 
 
 @app.put(
-    "/change_note_status",
-    summary="Change note status",
+    "/update_note",
+    summary="Update note",
     tags=["Notes"],
     dependencies=[Depends(authentication.auth.access_token_required)],
 )
-@limiter.shared_limit("20 per minute", "notes")
-async def change_note_status(
-    changeNoteSchema: ChangeNoteStatusSchema,
+@limiter.shared_limit("30 per minute", "notes")
+async def update_note(
+    noteSchema: NoteSchema,
     request: Request,
     session: sessionDep,
     access_token: str = Cookie(
@@ -320,14 +320,14 @@ async def change_note_status(
     try:
         query = (
             update(NotesModel)
-            .values(status=changeNoteSchema.status)
-            .where(NotesModel.id == changeNoteSchema.id)
+            .values(title=noteSchema.title, text=noteSchema.text, status=noteSchema.status)
+            .where(NotesModel.id == noteSchema.id)
         )
         await session.execute(query)
         await session.commit()
         return {"success": True}
     except Exception as e:
-        print("Something went wrong [Change note status]", e)
+        print("Something went wrong [Update note]", e)
         return {"success": False}
 
 
@@ -337,7 +337,7 @@ async def change_note_status(
     tags=["Notes"],
     dependencies=[Depends(authentication.auth.access_token_required)],
 )
-@limiter.shared_limit("20 per minute", "notes")
+@limiter.shared_limit("30 per minute", "notes")
 async def delete_note(
     noteIdSchema: NoteIdSchema,
     session: sessionDep,
