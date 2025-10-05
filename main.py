@@ -192,14 +192,13 @@ async def login(
 @app.delete(
     "/signout",
     summary="Sign out",
-    tags=["Authentication"]
+    tags=["Authentication"],
+    dependencies=[Depends(authentication.auth.access_token_required), Depends(authentication.auth.refresh_token_required)]
 )
 @limiter.shared_limit("30 per minute", "auth")
 async def sign_out(
     response: Response,
-    request: Request,
-    access_payload = Depends(authentication.auth.access_token_required),
-    refresh_payload = Depends(authentication.auth.refresh_token_required)
+    request: Request
 ):
     response.delete_cookie(authentication.config.JWT_ACCESS_COOKIE_NAME)
     response.delete_cookie(authentication.config.JWT_REFRESH_COOKIE_NAME)
@@ -268,16 +267,15 @@ async def get_notes(
 @app.put(
     "/update_note",
     summary="Update note",
-    tags=["Notes"]
+    tags=["Notes"],
+    dependencies=[Depends(authentication.auth.access_token_required)]
 )
 @limiter.shared_limit("30 per minute", "notes")
 async def update_note(
     noteSchema: NoteSchema,
     request: Request,
-    session: sessionDep,
-    access_token = Depends(authentication.auth.access_token_required)
+    session: sessionDep
 ):
-    uid = access_token.sub
     try:
         query = (
             update(NotesModel)
@@ -297,16 +295,15 @@ async def update_note(
 @app.delete(
     "/delete_note",
     summary="Delete note",
-    tags=["Notes"]
+    tags=["Notes"],
+    dependencies=[Depends(authentication.auth.access_token_required)]
 )
 @limiter.shared_limit("30 per minute", "notes")
 async def delete_note(
     noteIdSchema: NoteIdSchema,
     session: sessionDep,
-    request: Request,
-    access_payload = Depends(authentication.auth.access_token_required)
+    request: Request
 ):
-    uid = access_payload.sub
     try:
         query = delete(NotesModel).where(NotesModel.id == noteIdSchema.id)
         await session.execute(query)
