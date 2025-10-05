@@ -41,7 +41,9 @@ sessionDep = Annotated[AsyncSession, Depends(pg.get_session)]
 class RedisDB:
 
     def __init__(self) -> None:
-        self.redis = Redis(host=environ.get("HOST_REDIS"), port=environ.get("PORT_REDIS"))
+        self.redis = Redis(
+            host=environ.get("HOST_REDIS"), port=environ.get("PORT_REDIS")
+        )
 
     def is_redis_connected(self) -> bool:
         if self.redis is None:
