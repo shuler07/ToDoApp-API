@@ -320,7 +320,7 @@ async def update_note(
     try:
         query = (
             update(NotesModel)
-            .values(title=noteSchema.title, text=noteSchema.text, status=noteSchema.status)
+            .values(title=noteSchema.title, text=noteSchema.text, tags=noteSchema.tags, status=noteSchema.status)
             .where(NotesModel.id == noteSchema.id)
         )
         await session.execute(query)
