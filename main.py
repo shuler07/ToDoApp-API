@@ -66,10 +66,15 @@ app.add_exception_handler(JWTDecodeError, jwt_decode_token_error_handler)
 # Endpoints -> Authentication
 
 
-@app.get("/authenticate_user", summary="Validate access token", tags=["Authentication"])
+@app.get(
+    "/authenticate_user",
+    summary="Validate access token",
+    tags=["Authentication"]
+)
 @limiter.shared_limit("30 per minute", "auth")
 async def authenticate_user(
-    request: Request, access_payload=Depends(authentication.auth.access_token_required)
+    request: Request,
+    access_payload = Depends(authentication.auth.access_token_required)
 ):
     print("Payload:", access_payload)
     try:
@@ -82,7 +87,7 @@ async def authenticate_user(
         if issubclass(e.__class__, ExpiredSignatureError):
             print("Access token is expired")
         else:
-            print("Something went wrong [Authenticate user]", e)
+            print('Something went wrong [Authenticate user]', e)
 
         return {"isLoggedIn": False}
 
@@ -90,13 +95,13 @@ async def authenticate_user(
 @app.get(
     "/refresh_user",
     summary="Create new access token from refresh token",
-    tags=["Authentication"],
+    tags=["Authentication"]
 )
 @limiter.shared_limit("30 per minute", "auth")
 async def refresh_user(
     response: Response,
     request: Request,
-    refresh_payload=Depends(authentication.auth.refresh_token_required),
+    refresh_payload = Depends(authentication.auth.refresh_token_required)
 ):
     print("Payload:", refresh_payload)
     try:
@@ -125,7 +130,7 @@ async def refresh_user(
         return {"isLoggedIn": True}
     except Exception as e:
         if issubclass(e.__class__, ExpiredSignatureError):
-            print("Refresh token is expired")
+            print('Refresh token is expired')
         else:
             print("Something went wrong [Refresh user]", e)
 
@@ -171,9 +176,9 @@ async def register(
 
         return {"isLoggedIn": True}
     except Exception as e:
-        print("Something went wrong [Register]", e)
+        print('Something went wrong [Register]', e)
 
-        return {"isLoggedIn": False}
+        return {'isLoggedIn': False}
 
 
 @app.post("/login", summary="Login", tags=["Authentication"])
@@ -213,19 +218,16 @@ async def login(
 
         return {"isLoggedIn": True}
     except Exception as e:
-        print("Something went wrong [Login]", e)
+        print('Something went wrong [Login]', e)
 
-        return {"isLoggedIn": False}
+        return {'isLoggedIn': False}
 
 
 @app.delete(
     "/signout",
     summary="Sign out",
     tags=["Authentication"],
-    dependencies=[
-        Depends(authentication.auth.access_token_required),
-        Depends(authentication.auth.refresh_token_required),
-    ],
+    dependencies=[Depends(authentication.auth.access_token_required), Depends(authentication.auth.refresh_token_required)]
 )
 @limiter.shared_limit("30 per minute", "auth")
 async def sign_out(response: Response, request: Request):
@@ -248,13 +250,17 @@ async def sign_out(response: Response, request: Request):
 # Endpoints -> Notes
 
 
-@app.post("/create_new_note", summary="Create new note", tags=["Notes"])
+@app.post(
+    "/create_new_note",
+    summary="Create new note",
+    tags=["Notes"]
+)
 @limiter.shared_limit("30 per minute", "notes")
 async def create_new_note(
     createNote: CreateNoteSchema,
     request: Request,
     session: sessionDep,
-    access_payload=Depends(authentication.auth.access_token_required),
+    access_payload = Depends(authentication.auth.access_token_required)
 ):
     uid = access_payload.sub
     try:
@@ -263,6 +269,7 @@ async def create_new_note(
             title=createNote.title,
             text=createNote.text,
             status="not_completed",
+            tags=createNote.tags
         )
         session.add(new_note)
         await session.commit()
@@ -275,12 +282,16 @@ async def create_new_note(
         return {"success": False}
 
 
-@app.get("/get_notes", summary="Get notes", tags=["Notes"])
+@app.get(
+    "/get_notes",
+    summary="Get notes",
+    tags=["Notes"]
+)
 @limiter.shared_limit("30 per minute", "notes")
 async def get_notes(
     request: Request,
     session: sessionDep,
-    access_payload=Depends(authentication.auth.access_token_required),
+    access_payload = Depends(authentication.auth.access_token_required)
 ):
     uid = access_payload.sub
     try:
@@ -299,10 +310,14 @@ async def get_notes(
     "/update_note",
     summary="Update note",
     tags=["Notes"],
-    dependencies=[Depends(authentication.auth.access_token_required)],
+    dependencies=[Depends(authentication.auth.access_token_required)]
 )
 @limiter.shared_limit("30 per minute", "notes")
-async def update_note(noteSchema: NoteSchema, request: Request, session: sessionDep):
+async def update_note(
+    noteSchema: NoteSchema,
+    request: Request,
+    session: sessionDep
+):
     try:
         query = (
             update(NotesModel)
@@ -328,13 +343,13 @@ async def update_note(noteSchema: NoteSchema, request: Request, session: session
     "/delete_note",
     summary="Delete note",
     tags=["Notes"],
-    dependencies=[Depends(authentication.auth.access_token_required)],
+    dependencies=[Depends(authentication.auth.access_token_required)]
 )
 @limiter.shared_limit("30 per minute", "notes")
 async def delete_note(
     noteIdSchema: NoteIdSchema,
     session: sessionDep,
-    request: Request,
+    request: Request
 ):
     try:
         query = delete(NotesModel).where(NotesModel.id == noteIdSchema.id)
