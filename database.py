@@ -14,7 +14,7 @@ class Base(DeclarativeBase):
 
 
 class PostgresDB:
-    def __init__(self, url: str | None = environ.get("URL_DATABASE")) -> None:
+    def __init__(self, url: str | None = environ.get("URL_DATABASE_POSTGRES")) -> None:
         if url is None:
             raise ValueError("URL of database not found")
 
