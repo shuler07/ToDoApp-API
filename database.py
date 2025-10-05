@@ -5,10 +5,7 @@ from sqlalchemy.ext.asyncio.engine import create_async_engine
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession, AsyncEngine
 from redis.asyncio.client import Redis
 import json
-from os import getenv
-from dotenv import load_dotenv
-
-load_dotenv()
+from os import environ
 
 
 # Base class for all databases to create with one command
@@ -17,7 +14,7 @@ class Base(DeclarativeBase):
 
 
 class PostgresDB:
-    def __init__(self, url: str | None = getenv("URL_DATABASE")) -> None:
+    def __init__(self, url: str | None = environ.get("URL_DATABASE")) -> None:
         if url is None:
             raise ValueError("URL of database not found")
 
@@ -45,7 +42,9 @@ sessionDep = Annotated[AsyncSession, Depends(pg.get_session)]
 class RedisDB:
 
     def __init__(self) -> None:
-        self.redis = Redis(host=getenv("HOST_REDIS"), port=getenv("PORT_REDIS"))
+        self.redis = Redis(
+            host=environ.get("HOST_REDIS"), port=environ.get("PORT_REDIS")
+        )
 
     def is_redis_connected(self) -> bool:
         if self.redis is None:
