@@ -4,7 +4,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-import uvicorn
 from sqlalchemy import select, update
 from jose.exceptions import ExpiredSignatureError
 from authx.exceptions import MissingTokenError
@@ -28,7 +27,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, version=0.2)
 
 # Setup CORS middleware
 
@@ -281,5 +280,4 @@ async def change_note_status(
 
 
 if __name__ == "__main__":
-    port = int(environ.get('PORT', '8000'))
-    uvicorn.run("main:app", host='0.0.0.0', port=port)
+    uvicorn.run("main:app", reload=True)
