@@ -5,18 +5,15 @@ from sqlalchemy import pool
 from database import Base
 from models.usermodel import UserModel
 from models.notesmodel import NotesModel
-from dotenv import load_dotenv
-from os import getenv
+from os import environ
 
 from alembic import context
-
-load_dotenv()
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
-url_database = getenv('URL_DATABASE')
+url_database = environ.get('URL_DATABASE_POSTGRES')
 config.set_main_option('sqlalchemy.url', url_database)
 
 

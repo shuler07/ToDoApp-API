@@ -8,6 +8,7 @@ from sqlalchemy import select, update, delete
 from jose.exceptions import ExpiredSignatureError
 from authx.exceptions import MissingTokenError, JWTDecodeError
 from contextlib import asynccontextmanager
+import uvicorn
 
 from database import pg, sessionDep, rd
 from auth import authentication
@@ -357,3 +358,6 @@ async def delete_note(
     except Exception as e:
         print('Something went wrong [Delete note]', e)
         return {'success': False}
+
+if __name__ == '__main__':
+    uvicorn.run('main:app')
