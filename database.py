@@ -41,8 +41,14 @@ sessionDep = Annotated[AsyncSession, Depends(pg.get_session)]
 class RedisDB:
 
     def __init__(self) -> None:
-        self.redis = Redis(host=environ.get('URL_DATABASE_REDIS'), port='6379', db=0)
-    
+        self.redis = Redis(host=environ.get("HOST_REDIS"), port=environ.get("PORT_REDIS"))
+
+    def is_redis_connected(self) -> bool:
+        if self.redis is None:
+            print("Error: Redis not connected")
+            return False
+        return True
+
     async def set_cache(self, key: str, value: Any, exp: int | None) -> None:
         if not self.is_redis_connected():
             return

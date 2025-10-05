@@ -1,11 +1,13 @@
 from pydantic import BaseModel, Field
-from schemas.userschema import UserAuthSchema
+
+class NoteIdSchema(BaseModel):
+    id: int
 
 class CreateNoteSchema(BaseModel):
-    access_token: str
     title: str = Field(min_length=1)
     text: str = Field(min_length=1)
 
-class ChangeNoteStatusSchema(UserAuthSchema):
-    id: int
-    status: str = Field(min_length=1)
+class NoteSchema(NoteIdSchema, CreateNoteSchema):
+    uid: int = Field(ge=1)
+    status: str = Field(min_length=1, examples=['not_completed', 'completed', 'trash'])
+    tags: list[str]
