@@ -228,6 +228,7 @@ async def create_new_note(
             title=createNote.title,
             text=createNote.text,
             status="not_completed",
+            tags=createNote.tags
         )
         session.add(new_note)
         await session.commit()
