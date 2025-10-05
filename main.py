@@ -112,12 +112,14 @@ async def refresh_user(
             new_access_token,
             httponly=True,
             secure=True,
+            samesite="none",
         )
         response.set_cookie(
             authentication.config.JWT_REFRESH_COOKIE_NAME,
             new_refresh_token,
             httponly=True,
             secure=True,
+            samesite="none",
         )
 
         return {"isLoggedIn": True}
@@ -152,9 +154,19 @@ async def register(
 
         access_token = authentication.auth.create_access_token(uid)
         refresh_token = authentication.auth.create_refresh_token(uid)
-        response.set_cookie(authentication.config.JWT_ACCESS_COOKIE_NAME, access_token)
         response.set_cookie(
-            authentication.config.JWT_REFRESH_COOKIE_NAME, refresh_token
+            authentication.config.JWT_ACCESS_COOKIE_NAME,
+            access_token,
+            httponly=True,
+            secure=True,
+            samesite="none",
+        )
+        response.set_cookie(
+            authentication.config.JWT_REFRESH_COOKIE_NAME,
+            refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="none",
         )
 
         return {"isLoggedIn": True}
@@ -189,12 +201,14 @@ async def login(
             access_token,
             httponly=True,
             secure=True,
+            samesite="none",
         )
         response.set_cookie(
             authentication.config.JWT_REFRESH_COOKIE_NAME,
             refresh_token,
             httponly=True,
             secure=True,
+            samesite="none",
         )
 
         return {"isLoggedIn": True}
@@ -216,10 +230,16 @@ async def login(
 @limiter.shared_limit("30 per minute", "auth")
 async def sign_out(response: Response, request: Request):
     response.delete_cookie(
-        authentication.config.JWT_ACCESS_COOKIE_NAME, httponly=True, secure=True
+        authentication.config.JWT_ACCESS_COOKIE_NAME,
+        httponly=True,
+        secure=True,
+        samesite="none",
     )
     response.delete_cookie(
-        authentication.config.JWT_REFRESH_COOKIE_NAME, httponly=True, secure=True
+        authentication.config.JWT_REFRESH_COOKIE_NAME,
+        httponly=True,
+        secure=True,
+        samesite="none",
     )
 
     return {"isLoggedIn": False}
