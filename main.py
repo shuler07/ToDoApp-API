@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan, version="0.31")
+app = FastAPI(lifespan=lifespan, version="0.4")
 
 # Setup CORS middleware
 
@@ -236,7 +236,7 @@ async def create_new_note(
         
         return {'success': True, 'note': new_note}
     except Exception as e:
-        print("Something went wrong [Create new note, Creating note]", e)
+        print("Something went wrong [Create new note]", e)
 
         return {"success": False}
 

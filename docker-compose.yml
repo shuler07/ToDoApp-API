@@ -20,7 +20,7 @@ services:
   api:
     image: todoapp-api
     environment:
-      URL_DATABASE: ${URL_DATABASE}
+      URL_DATABASE_POSTGRES: ${URL_DATABASE_POSTGRES}
       HOST_REDIS: ${HOST_REDIS}
       PORT_REDIS: ${PORT_REDIS}
     networks:
