@@ -7,6 +7,10 @@ from redis.asyncio.client import Redis
 import json
 from os import environ
 
+# from dotenv import load_dotenv
+
+# load_dotenv()
+
 
 # Base class for all databases to create with one command
 class Base(DeclarativeBase):

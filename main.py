@@ -12,16 +12,22 @@ from pwdlib import PasswordHash
 
 from database import pg, sessionDep, rd
 from auth import authentication
+from smtp import email_sender
 from models.usermodel import UserModel
 from models.notesmodel import NotesModel
 from schemas.userschema import UserCredsSchema
 from schemas.notesschema import NoteIdSchema, CreateNoteSchema, NoteSchema
 
-# Lifespan for API
+
+hasher_argon2 = PasswordHash.recommended()
+
+# Create API app and setup it
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(
+    app: FastAPI,
+):  # lifespan (before yield - on start, after yield - on exit)
     await pg.create_all_tables()
     print("All tables created!")
     yield
@@ -29,28 +35,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan, version="0.5")
 
-# CORS middleware
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-)
+)  # CORS middleware
 
-# Password hash
-
-hasher_argon2 = PasswordHash.recommended()
-
-# Limiter
-
-limiter = Limiter(get_remote_address, ["5 per minute", "50 per hour"])
+limiter = Limiter(get_remote_address, ["5 per minute", "50 per hour"])  # Limiter
 app.state.limiter = limiter
 
+
 # Exceptions
-
-
 def missing_token_error_handler(request: Request, exc: MissingTokenError):
     if "access" in str(exc):
         return JSONResponse("Access token not found", 401)
@@ -67,7 +64,14 @@ app.add_exception_handler(MissingTokenError, missing_token_error_handler)
 app.add_exception_handler(JWTDecodeError, jwt_decode_token_error_handler)
 
 
-@app.get("/authenticate_user", summary="Validate access token", tags=["Authentication"])
+# Endpoints (Authentication)
+
+
+@app.get(
+    "/authentication/validation/access_token",
+    summary="Validate access token",
+    tags=["Authentication"],
+)
 @limiter.shared_limit("30 per minute", "auth")
 async def authenticate_user(
     request: Request, access_payload=Depends(authentication.auth.access_token_required)
@@ -88,7 +92,7 @@ async def authenticate_user(
 
 
 @app.get(
-    "/refresh_user",
+    "/authentication/validation/refresh_token",
     summary="Create new access token from refresh token",
     tags=["Authentication"],
 )
@@ -123,7 +127,7 @@ async def refresh_user(
         return JSONResponse("Something went wrong", 500)
 
 
-@app.post("/register", summary="Register", tags=["Authentication"])
+@app.post("/authentication/register", summary="Register user", tags=["Authentication"])
 @limiter.shared_limit("30 per minute", "auth")
 async def register(
     creds: UserCredsSchema, response: Response, request: Request, session: sessionDep
@@ -137,29 +141,24 @@ async def register(
             return JSONResponse("User with such email already exists", 401)
 
         hashed_password = hasher_argon2.hash(creds.password)
+        sub = f'{creds.email} {hashed_password}'
+        access_token = authentication.auth.create_access_token(sub)
 
-        new_user = UserModel(email=creds.email, password=hashed_password)
-        session.add(new_user)
-        await session.commit()
-        await session.refresh(new_user)
+        email_link = f"http://localhost:8000/authentication/verification/{access_token}"
+        email_msg = f"Subject: Verify your email for ToDoApp\n\n\
+Follow the link to verify your email: {email_link}\n\
+(If you didnt registered on this service, just ignore the message)"
 
-        uid = str(new_user.uid)
+        email_sender.send_message(creds.email, email_msg)
 
-        access_token = authentication.auth.create_access_token(uid)
-        refresh_token = authentication.auth.create_refresh_token(uid)
-        response.set_cookie(authentication.config.JWT_ACCESS_COOKIE_NAME, access_token)
-        response.set_cookie(
-            authentication.config.JWT_REFRESH_COOKIE_NAME, refresh_token
-        )
-
-        return {"isLoggedIn": True}
+        return {"isRegistered": True}
     except Exception as e:
         print("Something went wrong [Register]", e)
 
-        return {"isLoggedIn": False}
+        return {"isRegistered": False}
 
 
-@app.post("/login", summary="Login", tags=["Authentication"])
+@app.post("/authentication/login", summary="Login user", tags=["Authentication"])
 @limiter.shared_limit("30 per minute", "auth")
 async def login(
     creds: UserCredsSchema, response: Response, request: Request, session: sessionDep
@@ -191,9 +190,33 @@ async def login(
         return {"isLoggedIn": False}
 
 
+@app.get("/authentication/verification/{access_token}", summary='Verify email', tags=['Authentication'])
+@limiter.shared_limit("30 per minute", "auth")
+async def verify(access_token: str, request: Request, response: Response, session: sessionDep):
+    data = authentication.decode_token(access_token)
+    if not data['success']:
+        return {data.message}
+    
+    email, hashed_password = data['data'].split()
+
+    try:
+        user = UserModel(
+            email=email,
+            password=hashed_password
+        )
+        session.add(user)
+        await session.commit()
+
+        return {'Successfully registered! You can back to site and login into your account'}
+    except Exception as e:
+        print('Something went wrong [Verify]', e)
+
+        return {'Something went wrong, try again later'}
+
+
 @app.delete(
-    "/signout",
-    summary="Sign out",
+    "/authentication/signout",
+    summary="Sign out user",
     tags=["Authentication"],
     dependencies=[
         Depends(authentication.auth.access_token_required),
@@ -208,10 +231,10 @@ async def sign_out(response: Response, request: Request):
     return {"isLoggedIn": False}
 
 
-# Endpoints -> Notes
+# Endpoints (Notes)
 
 
-@app.post("/create_new_note", summary="Create new note", tags=["Notes"])
+@app.post("/notes", summary="Create new note", tags=["Notes"])
 @limiter.shared_limit("30 per minute", "notes")
 async def create_new_note(
     createNote: CreateNoteSchema,
@@ -239,7 +262,7 @@ async def create_new_note(
         return {"success": False}
 
 
-@app.get("/get_notes", summary="Get notes", tags=["Notes"])
+@app.get("/notes", summary="Get notes", tags=["Notes"])
 @limiter.shared_limit("30 per minute", "notes")
 async def get_notes(
     request: Request,
@@ -260,7 +283,7 @@ async def get_notes(
 
 
 @app.put(
-    "/update_note",
+    "/notes",
     summary="Update note",
     tags=["Notes"],
     dependencies=[Depends(authentication.auth.access_token_required)],
@@ -289,7 +312,7 @@ async def update_note(noteSchema: NoteSchema, request: Request, session: session
 
 
 @app.delete(
-    "/delete_note",
+    "/notes",
     summary="Delete note",
     tags=["Notes"],
     dependencies=[Depends(authentication.auth.access_token_required)],
