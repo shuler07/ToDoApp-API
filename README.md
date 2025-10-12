@@ -12,10 +12,15 @@
 5. Создать .env файл в корневой папке, который должен выглядеть следующим образом:  
    POSTGRES_USER="имя пользователя для бд (придумать самому любое)"  
    POSTGRES_PASSWORD="пароль пользователя для бд (придумать самому любой)"
-   POSTGRES_DB="название базы данных (придумать самому любое)"  
    HOST_REDIS="redis"  
    PORT_REDIS="6379"  
-   URL_DATABASE="postgresql+psycopg://{POSTGRES_USER, без скобок}:{POSTGRES_PASSWORD, без скобок}@postgres:5432/{POSTGRES_DB, без скобок}"  
+   URL_DATABASE_POSTGRES="postgresql+psycopg://{POSTGRES_USER, без скобок}:{POSTGRES_PASSWORD, без скобок}@postgres:5432/todoapp"  
+   EMAIL_USER="{адрес почты для отправки писем с верификацией}"  
+   EMAIL_PASSWORD="{специальный пароль для gmail api адреса почты для отправки писем с верификацией}"
+   (для настройки почты для отправки писем с верификацией см. документацию smtplib)
+6. После настройки почты для отправки писем с верификацией в корневой директории должен быть файл credentials.json. Теперь запустите quickstart.py:
+   ###### python quickstart.py
+   (выполняется единожды для подключения к вашей почте и создания token.json)
 7. Поднять композ из API, postgres и redis:
    ###### docker-compose up -d
 
