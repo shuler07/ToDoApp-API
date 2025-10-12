@@ -33,7 +33,13 @@ async def lifespan(
     yield
 
 
-app = FastAPI(lifespan=lifespan, version="0.5")
+app = FastAPI(
+    title="ToDoApp",
+    description="Create and store your notes with comfort",
+    summary="Notes manager",
+    lifespan=lifespan,
+    version="0.5",
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -69,6 +75,7 @@ app.add_exception_handler(JWTDecodeError, jwt_decode_token_error_handler)
 
 @app.get(
     "/authentication/validation/access_token",
+    description="Accepts access token from cookie. Returns True if access token is fresh and valid, False otherwise",
     summary="Validate access token",
     tags=["Authentication"],
 )
@@ -93,6 +100,7 @@ async def authenticate_user(
 
 @app.get(
     "/authentication/validation/refresh_token",
+    description="Accepts refresh token from cookie. Returns True and sends access and refresh tokens into cookie if refresh token is fresh and valid, False otherwise",
     summary="Create new access token from refresh token",
     tags=["Authentication"],
 )
@@ -127,7 +135,12 @@ async def refresh_user(
         return JSONResponse("Something went wrong", 500)
 
 
-@app.post("/authentication/register", summary="Register user", tags=["Authentication"])
+@app.post(
+    "/authentication/register",
+    description="Accepts creds object. Returns True and sends verification email if creds are valid and user doesnt exist, false otherwise",
+    summary="Register user",
+    tags=["Authentication"],
+)
 @limiter.shared_limit("30 per minute", "auth")
 async def register(
     creds: UserCredsSchema, response: Response, request: Request, session: sessionDep
@@ -141,7 +154,7 @@ async def register(
             return JSONResponse("User with such email already exists", 401)
 
         hashed_password = hasher_argon2.hash(creds.password)
-        sub = f'{creds.email} {hashed_password}'
+        sub = f"{creds.email} {hashed_password}"
         access_token = authentication.auth.create_access_token(sub)
 
         email_link = f"http://localhost:8000/authentication/verification/{access_token}"
@@ -158,7 +171,12 @@ Follow the link to verify your email: {email_link}\n\
         return {"isRegistered": False}
 
 
-@app.post("/authentication/login", summary="Login user", tags=["Authentication"])
+@app.post(
+    "/authentication/login",
+    description="Accepts creds object. Returns True and sends access and refresh tokens into cookie if creds valid, false otherwise",
+    summary="Login user",
+    tags=["Authentication"],
+)
 @limiter.shared_limit("30 per minute", "auth")
 async def login(
     creds: UserCredsSchema, response: Response, request: Request, session: sessionDep
@@ -190,32 +208,39 @@ async def login(
         return {"isLoggedIn": False}
 
 
-@app.get("/authentication/verification/{access_token}", summary='Verify email', tags=['Authentication'])
+@app.get(
+    "/authentication/verification/{access_token}",
+    description="Accepts access token from url. Creates new user with email and password from token",
+    summary="Verify email",
+    tags=["Authentication"],
+)
 @limiter.shared_limit("30 per minute", "auth")
-async def verify(access_token: str, request: Request, response: Response, session: sessionDep):
+async def verify(
+    access_token: str, request: Request, response: Response, session: sessionDep
+):
     data = authentication.decode_token(access_token)
-    if not data['success']:
+    if not data["success"]:
         return {data.message}
-    
-    email, hashed_password = data['data'].split()
+
+    email, hashed_password = data["data"].split()
 
     try:
-        user = UserModel(
-            email=email,
-            password=hashed_password
-        )
+        user = UserModel(email=email, password=hashed_password)
         session.add(user)
         await session.commit()
 
-        return {'Successfully registered! You can back to site and login into your account'}
+        return {
+            "Successfully registered! You can back to site and login into your account"
+        }
     except Exception as e:
-        print('Something went wrong [Verify]', e)
+        print("Something went wrong [Verify]", e)
 
-        return {'Something went wrong, try again later'}
+        return {"Something went wrong, try again later"}
 
 
 @app.delete(
     "/authentication/signout",
+    description="Accepts access and refresh tokens from cookie. Returns True and removes access and refresh tokens from cookie if access and refresh tokens are fresh and valid, false otherwise",
     summary="Sign out user",
     tags=["Authentication"],
     dependencies=[
@@ -234,7 +259,12 @@ async def sign_out(response: Response, request: Request):
 # Endpoints (Notes)
 
 
-@app.post("/notes", summary="Create new note", tags=["Notes"])
+@app.post(
+    "/notes",
+    description="Accepts note object and access token from cookie. Returns True and note object if access token is fresh and valid and note data valid, false otherwise",
+    summary="Create new note",
+    tags=["Notes"],
+)
 @limiter.shared_limit("30 per minute", "notes")
 async def create_new_note(
     createNote: CreateNoteSchema,
@@ -262,7 +292,12 @@ async def create_new_note(
         return {"success": False}
 
 
-@app.get("/notes", summary="Get notes", tags=["Notes"])
+@app.get(
+    "/notes",
+    description="Accepts access token from cookie. Returns list of notes if access token is fresh and valid, raises error otherwise",
+    summary="Get notes",
+    tags=["Notes"],
+)
 @limiter.shared_limit("30 per minute", "notes")
 async def get_notes(
     request: Request,
@@ -284,6 +319,7 @@ async def get_notes(
 
 @app.put(
     "/notes",
+    description='Accepts note object and access token from cookie. Returns True if access token is fresh and valid and note data valid, false otherwise',
     summary="Update note",
     tags=["Notes"],
     dependencies=[Depends(authentication.auth.access_token_required)],
@@ -313,6 +349,7 @@ async def update_note(noteSchema: NoteSchema, request: Request, session: session
 
 @app.delete(
     "/notes",
+    description='Accepts note id and access token from cookie. Returns True if access token is fresh and valid and note id valid, false otherwise',
     summary="Delete note",
     tags=["Notes"],
     dependencies=[Depends(authentication.auth.access_token_required)],
