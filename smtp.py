@@ -1,9 +1,9 @@
 import smtplib, ssl
+
 from os import environ
+from dotenv import load_dotenv
 
-# from dotenv import load_dotenv
-
-# load_dotenv()
+load_dotenv()
 
 
 class EmailSender:

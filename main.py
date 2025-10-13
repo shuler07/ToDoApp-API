@@ -5,7 +5,6 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import select, update, delete
-from jose.exceptions import ExpiredSignatureError
 from authx.exceptions import MissingTokenError, JWTDecodeError
 from contextlib import asynccontextmanager
 from pwdlib import PasswordHash
@@ -62,7 +61,10 @@ def missing_token_error_handler(request: Request, exc: MissingTokenError):
 
 
 def jwt_decode_token_error_handler(request: Request, exc: JWTDecodeError):
-    return JSONResponse("Token decode error", 401)
+    if "expired" in str(exc):
+        return JSONResponse("Token is expired", 401)
+    else:
+        return JSONResponse("Token decode error", 401)
 
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -90,10 +92,7 @@ async def authenticate_user(
 
         return {"isLoggedIn": True}
     except Exception as e:
-        if issubclass(e.__class__, ExpiredSignatureError):
-            print("Access token is expired")
-        else:
-            print("Something went wrong [Authenticate user]", e)
+        print("Something went wrong [Authenticate user]", e)
 
         return {"isLoggedIn": False}
 
@@ -127,10 +126,7 @@ async def refresh_user(
 
         return {"isLoggedIn": True}
     except Exception as e:
-        if issubclass(e.__class__, ExpiredSignatureError):
-            print("Refresh token is expired")
-        else:
-            print("Something went wrong [Refresh user]", e)
+        print("Something went wrong [Refresh user]", e)
 
         return JSONResponse("Something went wrong", 500)
 
