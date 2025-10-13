@@ -12,8 +12,6 @@
 5. Создать .env файл в корневой папке, который должен выглядеть следующим образом:  
    POSTGRES_USER="имя пользователя для бд (придумать самому любое)"  
    POSTGRES_PASSWORD="пароль пользователя для бд (придумать самому любой)"  
-   HOST_REDIS="redis"  
-   PORT_REDIS="6379"  
    URL_DATABASE_POSTGRES="postgresql+psycopg://{POSTGRES_USER, без скобок}:{POSTGRES_PASSWORD, без скобок}@postgres:5432/todoapp"  
    EMAIL_USER="{ваша почта для рассылки писем с верификацией}"  
    EMAIL_PASSWORD="{специальный пароль для gmail api от вашей почты для рассылки писем с верификацией}"
