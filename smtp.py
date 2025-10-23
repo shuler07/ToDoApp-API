@@ -35,4 +35,8 @@ class EmailSender:
             return False
 
 
-email_sender = EmailSender()
+verification_enabled = environ.get("VERIFICATION_ENABLED") == "True"
+
+email_sender: EmailSender | None = None
+if verification_enabled:
+    email_sender = EmailSender()

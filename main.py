@@ -18,7 +18,6 @@ async def lifespan(
     app: FastAPI,
 ):
     await pg.create_all_tables()
-    print("All tables created!")
     yield
 
 
@@ -27,7 +26,7 @@ app = FastAPI(
     description="Create and store your notes with comfort",
     summary="Notes manager",
     lifespan=lifespan,
-    version="0.6",
+    version="1.0",
 )
 
 app.state.limiter = limiter

@@ -34,4 +34,8 @@ def test_login(user_creds_schema) -> None:
     response = tester.post(url="/auth/login", json=user_creds_schema)
 
     assert response.status_code == 200
-    assert response.json() == {"isLoggedIn": True, "username": "testuser", 'email': 'levelediters@gmail.com'}
+    assert response.json() == {
+        "isLoggedIn": True,
+        "username": "testuser",
+        "email": "levelediters@gmail.com",
+    }

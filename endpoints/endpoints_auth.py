@@ -5,12 +5,11 @@ from pwdlib import PasswordHash
 
 from limiter import limiter
 from auth import authentication
-from smtp import email_sender
+from smtp import verification_enabled, email_sender
 from database import sessionDep
 from models.usermodel import UserModel
 from schemas.userschema import (
     UserEmailSchema,
-    UserPasswordSchema,
     UserNewPasswordSchema,
     UserCredsSchema,
     UserUsernameSchema,
@@ -109,17 +108,29 @@ async def register(newUser: UserSchema, request: Request, session: sessionDep):
             return {"isRegistered": False, "error": "exists"}
 
         hashed_password = hasher.hash(newUser.password)
-        sub = f"{newUser.email} {hashed_password} {newUser.username} ."
-        access_token = authentication.auth.create_access_token(sub)
 
-        email_link = f"http://localhost:8000/auth/verification/{access_token}"
-        email_msg = f"Subject: Verify your email for ToDoApp\n\n\
+        if verification_enabled:
+            sub = f"{newUser.email} {hashed_password} {newUser.username} ."
+            access_token = authentication.auth.create_access_token(sub)
+
+            email_link = f"http://localhost:8000/auth/verification/{access_token}"
+            email_msg = f"Subject: Verify your email for ToDoApp\n\n\
 Follow the link to verify your email: {email_link}\n\
 (If you didnt registered on this service, just ignore the message)"
 
-        email_sender.send_message(newUser.email, email_msg)
+            email_sender.send_message(newUser.email, email_msg)
 
-        return {"isRegistered": True}
+            return {"isRegistered": True}
+        else:
+            new_user = UserSchema(
+                email=newUser.email,
+                password=hashed_password,
+                username=newUser.username,
+            )
+            await session.add(new_user)
+            await session.commit()
+
+            return {"isRegistered": True}
     except Exception as e:
         print("Something went wrong [Register]", e)
 
@@ -231,7 +242,7 @@ async def update_username(
     "/user/email",
     description="Accepts email and access token from cookie. Returns True if email correct and access token valid, False otherwise",
     summary="Update email",
-    dependencies=[Depends(authentication.auth.refresh_token_required)]
+    dependencies=[Depends(authentication.auth.refresh_token_required)],
 )
 @limiter.shared_limit(limit_value=LIMIT_VALUE_AUTH, scope=SCOPE_AUTH)
 async def update_email(
@@ -299,22 +310,26 @@ async def update_password(
         old_hashed_password = result.scalar_one_or_none()
 
         if old_hashed_password is None:
-            return {'success': False, 'error': 'User not found'}
-        
+            return {"success": False, "error": "User not found"}
+
         if hasher.verify(password, old_hashed_password):
             new_hashed_password = hasher.hash(new_password)
 
-            query = update(UserModel).values(password=new_hashed_password).where(UserModel.password == old_hashed_password)
+            query = (
+                update(UserModel)
+                .values(password=new_hashed_password)
+                .where(UserModel.password == old_hashed_password)
+            )
             await session.execute(query)
             await session.commit()
 
-            return {'success': True}
+            return {"success": True}
         else:
-            return {'success': False, 'error': 'Wrong password'}
+            return {"success": False, "error": "Wrong password"}
     except Exception as e:
-        print('Something went wrong [Update password]', e)
+        print("Something went wrong [Update password]", e)
 
-        return {'success': False, 'error': 'unknown'}
+        return {"success": False, "error": "unknown"}
 
 
 @router_auth.delete(
