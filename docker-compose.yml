@@ -9,13 +9,6 @@ services:
       - todoapp-network
     volumes:
       - data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:latest
-    networks:
-      - todoapp-network
-    volumes:
-      - data:/var/lib/redis/data
     
   api:
     image: todoapp-api
@@ -23,11 +16,17 @@ services:
       URL_DATABASE_POSTGRES: ${URL_DATABASE_POSTGRES}
     networks:
       - todoapp-network
-    ports:
-      - "8000:8000"
     depends_on:
       - postgres
-      - redis
+  
+  web:
+    image: todoapp-web
+    networks:
+      - todoapp-network
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
   
 networks:
   todoapp-network:
